@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#08090d" />
+  <title>Xadrez Bruxo — Experiência 3D Cinematográfica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+<!-- CONTAINER 3D THREE.JS -->
+  <div id="canvas-container" role="application" aria-label="Tabuleiro tridimensional de xadrez. Use o mouse ou toque para selecionar peças e destinos legais." tabindex="0" title="Arraste para orbitar a câmera • Roda do mouse aproxima • Clique em uma peça para jogar"></div>
+  <div class="vignette-overlay"></div>
+
+  <!-- CAMADA DE INTERFACE (HUD DIEGÉTICO E RETRÁTIL) -->
+  <div class="hud-layer flex flex-col justify-between p-2.5 sm:p-4">
+
+    <!-- BARRA SUPERIOR: TÍTULO, STATUS DE TURNO, MODO RÁPIDO E CÂMERA -->
+    <header class="flex flex-wrap items-start justify-between gap-2.5">
+      
+      <!-- Identidade do Produto e Estado da Partida -->
+      <div class="grimoire-panel hud-interactive rounded-xl px-3.5 py-2.5 flex items-center gap-3.5 max-w-full">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-600/35 to-stone-950 border border-amber-500/45 flex items-center justify-center shadow-inner shrink-0">
+          <i data-lucide="swords" class="w-5 h-5 text-amber-300"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="font-cinzel text-sm sm:text-base md:text-lg font-bold text-amber-100 tracking-wider truncate">XADREZ BRUXO</h1>
+            <span id="badge-check" class="hidden px-2 py-0.5 text-[10px] font-cinzel font-bold uppercase tracking-widest bg-red-900/90 text-red-200 border border-red-500/60 rounded animate-pulse">
+              XEQUE!
+            </span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-stone-300 mt-0.5 flex-wrap">
+            <span id="turn-dot" class="w-2.5 h-2.5 rounded-full bg-amber-100 shadow-[0_0_8px_#fff] shrink-0"></span>
+            <span id="status-text" class="font-medium">Turno do Marfim (Brancas)</span>
+            <span id="clock-white" class="hidden rounded border border-amber-500/30 bg-black/35 px-1.5 py-0.5 font-mono text-[11px] text-amber-100" aria-label="Relógio das Brancas">10:00</span>
+            <span id="clock-black" class="hidden rounded border border-stone-500/40 bg-black/35 px-1.5 py-0.5 font-mono text-[11px] text-stone-200" aria-label="Relógio das Pretas">10:00</span>
+            <span id="guardian-thinking" class="hidden items-center gap-1.5 text-amber-400 font-medium ml-1">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 animate-spin"></i>
+              <span>O Guardião medita...</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controles Rápidos Superiores: Câmera, Painéis e Grimório -->
+      <div class="flex flex-wrap items-center gap-2 hud-interactive">
+        <!-- Visões de Câmera com Transição Suave -->
+        <div class="grimoire-panel rounded-xl p-1 flex items-center gap-1">
+          <button data-action="setCameraPreset('white')" id="cam-white" class="btn-arcane active px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Visão do Marfim (Brancas)">
+            <i data-lucide="eye" class="w-3.5 h-3.5 text-amber-300"></i>
+            <span class="hidden md:inline">Marfim</span>
+          </button>
+          <button data-action="setCameraPreset('top')" id="cam-top" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Visão Tática Zenital">
+            <i data-lucide="compass" class="w-3.5 h-3.5 text-amber-300"></i>
+            <span class="hidden md:inline">Tática</span>
+          </button>
+          <button data-action="setCameraPreset('cinema')" id="cam-cinema" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Ângulo Dramático Diagonal">
+            <i data-lucide="film" class="w-3.5 h-3.5 text-amber-300"></i>
+            <span class="hidden md:inline">Cinema</span>
+          </button>
+          <button data-action="setCameraPreset('black')" id="cam-black" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Visão da Obsidiana (Pretas)">
+            <i data-lucide="shield" class="w-3.5 h-3.5 text-amber-300"></i>
+            <span class="hidden xl:inline">Obsidiana</span>
+          </button>
+        </div>
+
+        <!-- Ações Principais -->
+        <div class="grimoire-panel rounded-xl p-1 flex items-center gap-1">
+          <button data-action="toggleHelpModal()" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1" title="Guia de Interação e Comandos de Voz">
+            <i data-lucide="help-circle" class="w-3.5 h-3.5 text-amber-300"></i>
+            <span class="hidden lg:inline">Guia</span>
+          </button>
+          <button data-action="toggleModal('settings-modal')" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Configurações do Salão e Partida">
+            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-amber-300"></i>
+            <span class="hidden sm:inline">Grimório</span>
+          </button>
+          <button data-action="resetGame()" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 text-amber-200" title="Reiniciar Batalha">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span class="hidden sm:inline">Reiniciar</span>
+          </button>
+        </div>
+      </div>
+
+    </header>
+
+    <!-- ÁREA CENTRAL LATERAL: PAINÉIS RETRÁTEIS DE VOZ E CRÔNICAS -->
+    <div class="relative flex flex-1 items-center justify-between pointer-events-none my-2 overflow-hidden">
+
+      <!-- Botões Flutuantes para Reabrir Painéis Quando Recolhidos -->
+      <button id="btn-expand-left" data-action="toggleLeftPanel()" class="hidden hud-interactive grimoire-panel btn-arcane fixed left-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-xl items-center gap-1.5 text-xs shadow-lg" title="Abrir Painel do Oráculo de Voz">
+        <i data-lucide="mic" class="w-4 h-4 text-amber-300"></i>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-stone-400"></i>
+      </button>
+
+      <button id="btn-expand-right" data-action="toggleRightPanel()" class="hidden lg:hidden hud-interactive grimoire-panel btn-arcane fixed right-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-xl items-center gap-1.5 text-xs shadow-lg" title="Abrir Crônicas da Partida">
+        <i data-lucide="chevron-left" class="w-3.5 h-3.5 text-stone-400"></i>
+        <i data-lucide="scroll-text" class="w-4 h-4 text-amber-300"></i>
+      </button>
+
+      <!-- Painel Esquerdo: Comandos de Voz Arcanos & Peças Destruídas -->
+      <aside id="left-panel" class="grimoire-panel hud-interactive rounded-xl p-3.5 w-72 sm:w-80 flex flex-col gap-3 max-h-[70vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-amber-500/20 pb-2">
+          <div class="flex items-center gap-2">
+            <i data-lucide="mic" class="w-4 h-4 text-amber-400"></i>
+            <h2 class="font-cinzel text-xs font-bold uppercase tracking-wider text-amber-200">Oráculo de Voz</h2>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span id="voice-status-badge" class="text-[10px] px-2 py-0.5 rounded bg-stone-800/90 text-stone-300 border border-stone-700">
+              Pronto (pt-BR)
+            </span>
+            <button data-action="toggleLeftPanel()" class="text-stone-400 hover:text-amber-200 p-0.5 rounded" title="Recolher Painel">
+              <i data-lucide="panel-left-close" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Botão Principal de Microfone + Simulador -->
+        <div class="flex gap-2">
+          <button id="btn-mic" data-action="toggleVoiceRecognition()" class="btn-arcane flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold">
+            <i data-lucide="mic" class="w-4 h-4 text-amber-300"></i>
+            <span id="btn-mic-label">Comandar por Voz</span>
+          </button>
+          <button data-action="testVoiceDemo()" class="btn-arcane px-2.5 py-2.5 rounded-lg text-xs" title="Simular comando de voz válido na posição atual">
+            <i data-lucide="wand-2" class="w-4 h-4 text-amber-300"></i>
+          </button>
+        </div>
+
+        <!-- Feedback de Transcrição e Interpretação -->
+        <div class="bg-black/50 rounded-lg p-2.5 border border-stone-800/90 text-xs space-y-1">
+          <div class="flex items-center justify-between text-[11px] text-stone-400">
+            <span>Voz reconhecida:</span>
+            <span id="voice-coord-hint" class="font-mono text-amber-400 font-semibold"></span>
+          </div>
+          <p id="voice-transcript" class="text-stone-200 italic min-h-[1.25rem]">
+            "Peão para E4", "Cavalo para F3"...
+          </p>
+          <p id="voice-feedback" class="text-[11px] text-amber-300/95 leading-snug min-h-[1rem]"></p>
+        </div>
+
+        <!-- Fallback / Entrada de Comando Direto por Texto -->
+        <form data-submit="handleTextCommandSubmit" class="flex gap-1.5">
+          <input
+            id="command-input"
+            type="text"
+            autocomplete="off"
+            placeholder="Digite: Cavalo para F3 ou e2e4..."
+            class="flex-1 bg-stone-950/90 border border-amber-500/30 rounded-lg px-2.5 py-1.5 text-xs text-amber-100 placeholder-stone-500 focus:outline-none focus:border-amber-400"
+          />
+          <button type="submit" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs" title="Executar Ordem Escrita">
+            <i data-lucide="send" class="w-3.5 h-3.5 text-amber-300"></i>
+          </button>
+        </form>
+
+        <!-- Lista de Ambiguidade (Aparece quando 2 peças iguais podem ir à mesma casa) -->
+        <div id="ambiguity-box" class="hidden bg-amber-950/50 border border-amber-500/50 rounded-lg p-2.5 space-y-2">
+          <p class="text-[11px] text-amber-200 font-medium">
+            Ordem ambígua! Escolha qual peça deve avançar:
+          </p>
+          <div id="ambiguity-options" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- Cemitério de Peças Destruídas & Vantagem Material -->
+        <div class="border-t border-amber-500/20 pt-2.5 space-y-2">
+          <div class="flex items-center justify-between text-[11px] text-stone-400">
+            <span>Obsidiana destruída:</span>
+            <span id="material-adv-white" class="text-amber-300 font-mono font-semibold text-[11px]"></span>
+          </div>
+          <div id="captured-black" class="flex flex-wrap gap-1 min-h-[22px] text-sm text-stone-300"></div>
+
+          <div class="flex items-center justify-between text-[11px] text-stone-400 pt-1">
+            <span>Marfim destruído:</span>
+            <span id="material-adv-black" class="text-amber-300 font-mono font-semibold text-[11px]"></span>
+          </div>
+          <div id="captured-white" class="flex flex-wrap gap-1 min-h-[22px] text-sm text-amber-200"></div>
+        </div>
+      </aside>
+
+      <!-- Painel Direito: Crônicas da Partida (Histórico Algébrico) -->
+      <aside id="right-panel" class="hidden lg:flex grimoire-panel hud-interactive rounded-xl p-3.5 w-68 flex-col gap-2.5 max-h-[68vh]">
+        <div class="flex items-center justify-between border-b border-amber-500/20 pb-2">
+          <div class="flex items-center gap-2">
+            <i data-lucide="scroll-text" class="w-4 h-4 text-amber-400"></i>
+            <h2 class="font-cinzel text-xs font-bold uppercase tracking-wider text-amber-200">Crônicas do Salão</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="move-counter" class="text-[10px] font-mono text-stone-400">Lance 1</span>
+            <button data-action="toggleRightPanel()" class="text-stone-400 hover:text-amber-200 p-0.5 rounded" title="Recolher Crônicas">
+              <i data-lucide="panel-right-close" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="move-history" class="flex-1 overflow-y-auto space-y-1 pr-1 text-xs font-mono min-h-[160px] max-h-[38vh]">
+          <div class="text-stone-500 italic font-sans text-[11px] py-4 text-center">
+            As esculturas aguardam o primeiro comando...
+          </div>
+        </div>
+
+        <!-- Ferramentas locais de xadrez: histórico, salvamento e intercâmbio -->
+        <div class="border-t border-amber-500/20 pt-2.5 space-y-2">
+          <p class="text-[10px] uppercase tracking-[.18em] text-amber-300/80 font-semibold">Ferramentas do grimório</p>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button data-action="undoMove()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]" title="Desfazer o último lance">↶ Desfazer</button>
+            <button data-action="redoMove()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]" title="Refazer lance desfeito">↷ Refazer</button>
+            <button data-action="saveGame()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Salvar partida</button>
+            <button data-action="loadSavedGame()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Retomar salva</button>
+            <button data-action="exportPGN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Exportar PGN</button>
+            <button data-action="importPGN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Importar PGN</button>
+            <button data-action="showFEN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Ver FEN</button>
+            <button data-action="copyFEN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Copiar FEN</button>
+            <button data-action="importFEN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px] col-span-2">Carregar posição FEN</button>
+            <button data-action="offerDraw()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Oferecer empate</button>
+            <button data-action="resignGame()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Desistir</button>
+          </div>
+          <button data-action="returnToMenu()" class="btn-arcane w-full rounded-lg px-2 py-2 text-[11px]">⟵ Menu principal</button>
+        </div>
+
+        <!-- Modo de Jogo & Dificuldade Rápida -->
+        <div class="border-t border-amber-500/20 pt-2.5 space-y-2 text-xs">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-stone-400 text-[11px]">Adversário:</span>
+            <select id="select-mode" data-change="changeGameMode" class="bg-stone-900 border border-amber-500/35 rounded px-2 py-1 text-[11px] text-amber-100 focus:outline-none">
+              <option value="ai">Guardião Arcano (IA)</option>
+              <option value="local">Duelo Local (2 Jogadores)</option>
+            </select>
+          </div>
+          <div id="difficulty-row" class="flex items-center justify-between gap-2">
+            <span class="text-stone-400 text-[11px]">Poder do Guardião:</span>
+            <select id="select-difficulty" data-change="changeDifficulty" class="bg-stone-900 border border-amber-500/35 rounded px-2 py-1 text-[11px] text-amber-100 focus:outline-none">
+              <option value="1">Aprendiz (Nível 1)</option>
+              <option value="2" selected>Mestre Arcano (Nível 2)</option>
+              <option value="3">Grão-Mestre (Nível 3)</option>
+            </select>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- BARRA INFERIOR: BANNER DE EVENTOS E CONTROLES DE ÁUDIO/ANIMAÇÃO -->
+    <footer class="flex flex-wrap items-center justify-between gap-2">
+      <div class="grimoire-panel hud-interactive rounded-xl px-3.5 py-2 flex items-center gap-2.5 text-xs text-stone-300 max-w-full">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+        <span id="last-move-banner" class="truncate">Clique em uma peça de Marfim ou comande por voz.</span>
+      </div>
+
+      <div class="grimoire-panel hud-interactive rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-xs">
+        <button data-action="toggleLeftPanel()" class="btn-arcane px-2 py-1 rounded-lg flex sm:hidden items-center gap-1" title="Mostrar/Ocultar Painel de Voz">
+          <i data-lucide="mic" class="w-3.5 h-3.5 text-amber-300"></i>
+        </button>
+        <button data-action="toggleSound()" id="btn-sfx" class="btn-arcane active px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Alternar Efeitos Sonoros de Pedra e Impacto">
+          <i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span class="hidden sm:inline">Sons</span>
+        </button>
+        <button data-action="toggleVoiceAnnounce()" id="btn-tts" class="btn-arcane active px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Alternar Narração de Voz das Jogadas">
+          <i data-lucide="message-square-quote" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span class="hidden sm:inline">Narração</span>
+        </button>
+        <button data-action="cycleAnimSpeed()" id="btn-anim-speed" class="btn-arcane px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Velocidade das Capturas Cinematográficas">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span id="anim-speed-label">Cinema</span>
+        </button>
+      </div>
+    </footer>
+
+  </div>
+
+
+  <!-- TELA INICIAL: CONFIGURAÇÃO DA BATALHA ANTES DE LIBERAR O TABULEIRO -->
+  <div id="start-screen" class="start-screen fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="start-title">
+    <div class="start-shell relative grid w-full max-w-5xl overflow-hidden rounded-3xl">
+      <section class="start-hero">
+        <div class="space-y-6">
+          <div class="start-emblem" aria-hidden="true">♜</div>
+          <div class="space-y-3">
+            <p class="start-eyebrow">Uma batalha entre Marfim e Obsidiana</p>
+            <h1 id="start-title" class="start-title text-4xl sm:text-5xl font-bold">Xadrez<br><span style="color:#d9b16b">Bruxo</span></h1>
+            <p class="start-description max-w-sm text-sm leading-7 text-stone-400">Entre no salão, escolha suas peças e desafie o Guardião Arcano. Cada movimento tem peso, cada captura deixa sua marca.</p>
+          </div>
+        </div>
+        <div class="start-features relative z-10 space-y-4">
+          <div class="start-feature"><span class="start-feature-mark">✦</span><span><strong class="text-stone-200">Um salão em 3D</strong><br>Pedra, bronze, luzes e esculturas em uma arena cinematográfica.</span></div>
+          <div class="start-feature"><span class="start-feature-mark">✦</span><span><strong class="text-stone-200">Escolha sua estratégia</strong><br>Jogue contra a IA ou enfrente outra pessoa no mesmo dispositivo.</span></div>
+        </div>
+        <p class="start-eyebrow relative z-10">Prepare-se para a partida</p>
+      </section>
+
+      <section class="start-controls">
+        <div class="space-y-1">
+          <p class="start-eyebrow">Novo confronto</p>
+          <h2 class="font-cinzel text-xl font-bold text-amber-100">Prepare sua batalha</h2>
+          <p class="text-xs leading-5 text-stone-500">Defina as regras antes de entrar no tabuleiro.</p>
+        </div>
+        <form id="start-game-form" class="space-y-5" data-submit="startNewGameFromMenu">
+          <div>
+            <label class="start-label" for="start-mode">Modo de jogo</label>
+            <select id="start-mode" class="start-select" data-change="updateStartMenuMode">
+              <option value="ai" selected>Contra o Guardião Arcano (IA)</option>
+              <option value="local">Duelo local — 2 jogadores</option>
+            </select>
+          </div>
+
+          <div id="start-color-group">
+            <span class="start-label">Escolha seu exército</span>
+            <div class="flex gap-3">
+              <button type="button" id="start-color-white" class="side-choice selected" aria-pressed="true" data-action="selectStartingColor('w')">
+                <span class="side-piece" aria-hidden="true" style="color:#eadcc2;text-shadow:0 2px 8px #000">♔</span>
+                <span class="block text-sm font-semibold">Marfim</span>
+                <span class="block mt-1 text-[10px] text-stone-500">Brancas · começam</span>
+              </button>
+              <button type="button" id="start-color-black" class="side-choice" aria-pressed="false" data-action="selectStartingColor('b')">
+                <span class="side-piece" aria-hidden="true" style="color:#69717f;text-shadow:0 2px 8px #000">♚</span>
+                <span class="block text-sm font-semibold">Obsidiana</span>
+                <span class="block mt-1 text-[10px] text-stone-500">Pretas · segundo turno</span>
+              </button>
+            </div>
+            <p id="start-color-note" class="mt-2 text-[10px] leading-4 text-stone-500">Ao escolher Obsidiana, a IA fará a primeira jogada automaticamente.</p>
+          </div>
+
+          <div>
+            <label class="start-label" for="start-time-control">Relógio da partida</label>
+            <select id="start-time-control" class="start-select" data-change="setClockControl">
+              <option value="off">Sem limite de tempo</option>
+              <option value="300+0">5 minutos</option>
+              <option value="600+0" selected>10 minutos</option>
+              <option value="900+10">15 minutos + 10 segundos</option>
+            </select>
+            <p class="mt-1 text-[10px] text-stone-500">O relógio é opcional e roda localmente durante a partida.</p>
+          </div>
+
+          <div id="start-difficulty-group">
+            <label class="start-label" for="start-difficulty">Dificuldade do Guardião</label>
+            <select id="start-difficulty" class="start-select">
+              <option value="1">Aprendiz — ideal para começar</option>
+              <option value="2" selected>Mestre Arcano — desafio equilibrado</option>
+              <option value="3">Grão-Mestre — maior profundidade</option>
+            </select>
+          </div>
+
+          <button type="submit" class="start-play-btn" aria-label="Iniciar nova partida com as opções escolhidas"><span>Entrar no salão</span><span aria-hidden="true">→</span></button>
+          <p class="start-disclaimer">As regras seguem o xadrez clássico. Você pode ajustar som, câmera e qualidade dentro da partida.</p>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <!-- MODAL DE PROMOÇÃO DE PEÃO -->
+  <div id="promotion-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-6 max-w-md w-full text-center space-y-5">
+      <div class="space-y-1">
+        <h3 class="font-cinzel text-xl font-bold text-amber-200">Ascensão Arcana</h3>
+        <p class="text-xs text-stone-300">Seu peão alcançou a última fileira. Escolha em qual escultura monolítica ele deve renascer:</p>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button data-action="confirmPromotion('q')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
+          <span class="text-3xl text-amber-300">♛</span>
+          <span class="font-cinzel text-xs font-bold text-amber-100">Rainha</span>
+        </button>
+        <button data-action="confirmPromotion('r')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
+          <span class="text-3xl text-amber-300">♜</span>
+          <span class="font-cinzel text-xs font-bold text-amber-100">Torre</span>
+        </button>
+        <button data-action="confirmPromotion('b')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
+          <span class="text-3xl text-amber-300">♝</span>
+          <span class="font-cinzel text-xs font-bold text-amber-100">Bispo</span>
+        </button>
+        <button data-action="confirmPromotion('n')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
+          <span class="text-3xl text-amber-300">♞</span>
+          <span class="font-cinzel text-xs font-bold text-amber-100">Cavalo</span>
+        </button>
+      </div>
+      <div class="pt-2 border-t border-amber-500/20">
+        <button data-action="cancelPromotion()" class="btn-arcane w-full py-2 rounded-xl text-stone-400 hover:text-amber-200 text-xs font-cinzel">
+          Cancelar escolha
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIGURAÇÕES DO SALÃO E DA PARTIDA (GRIMÓRIO) -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-6 max-w-md w-full space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-amber-500/25 pb-3">
+        <h3 class="font-cinzel text-lg font-bold text-amber-200 flex items-center gap-2">
+          <i data-lucide="sliders-horizontal" class="w-5 h-5 text-amber-400"></i>
+          Grimório do Salão
+        </h3>
+        <button data-action="toggleModal('settings-modal', false)" class="text-stone-400 hover:text-amber-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <!-- Modo e Dificuldade sincronizados (útil em telas menores) -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-amber-100">Modo de Partida</p>
+            <p class="text-stone-400 text-[11px]">Enfrente o Guardião IA ou jogue em 2 pessoas</p>
+          </div>
+          <select id="modal-select-mode" data-change="changeGameMode" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
+            <option value="ai">Guardião Arcano (IA)</option>
+            <option value="local">Duelo Local (2 Jogadores)</option>
+          </select>
+        </div>
+
+        <div id="modal-difficulty-row" class="flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-amber-100">Poder do Guardião (IA)</p>
+            <p class="text-stone-400 text-[11px]">Profundidade tática do oponente</p>
+          </div>
+          <select id="modal-select-difficulty" data-change="changeDifficulty" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
+            <option value="1">Aprendiz (Nível 1)</option>
+            <option value="2" selected>Mestre Arcano (Nível 2)</option>
+            <option value="3">Grão-Mestre (Nível 3)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between border-t border-amber-500/15 pt-3">
+          <div>
+            <p class="font-semibold text-amber-100">Qualidade Gráfica e Sombras</p>
+            <p class="text-stone-400 text-[11px]">Ajusta sombras projetadas, braseiros e estilhaços</p>
+          </div>
+          <select id="setting-quality" data-change="setGraphicsQuality" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
+            <option value="high" selected>Alta (Cinematográfica)</option>
+            <option value="performance">Desempenho (Leve)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-amber-100">Coreografia de Captura</p>
+            <p class="text-stone-400 text-[11px]">Intensidade e velocidade das colisões físicas</p>
+          </div>
+          <select id="setting-anim" data-change="setAnimMode" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
+            <option value="cinema" selected>Cinematográfica</option>
+            <option value="fast">Rápida</option>
+            <option value="instant">Instantânea</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-amber-100">Vibração da Câmera em Capturas</p>
+            <p class="text-stone-400 text-[11px]">Tremor sutil e breve no impacto da destruição</p>
+          </div>
+          <input id="setting-cam-focus" type="checkbox" checked data-change="toggleCaptureCameraFocus" data-change-prop="checked" class="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button data-action="toggleModal('settings-modal', false)" class="btn-arcane active px-5 py-2 rounded-xl text-xs font-semibold">
+          Retornar ao Salão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE GUIA RÁPIDO E PRIMEIRA UTILIZAÇÃO -->
+  <div id="help-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-6 max-w-md w-full space-y-4">
+      <div class="flex items-center justify-between border-b border-amber-500/25 pb-3">
+        <h3 class="font-cinzel text-lg font-bold text-amber-200 flex items-center gap-2">
+          <i data-lucide="book-open" class="w-5 h-5 text-amber-400"></i>
+          Manual do Xadrez Bruxo
+        </h3>
+        <button data-action="toggleHelpModal(false)" class="text-stone-400 hover:text-amber-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-stone-300 leading-relaxed">
+        <div class="bg-black/40 border border-amber-500/20 rounded-xl p-3 space-y-1">
+          <p class="font-cinzel text-amber-300 font-bold uppercase text-[11px]">1. Controles Táticos & Câmera</p>
+          <p>• <strong>Selecionar e Mover:</strong> Clique em uma escultura de Marfim para revelar os destinos legais (azul) e capturas (vermelho).</p>
+          <p>• <strong>Orbitar Salão:</strong> Arraste com o botão esquerdo ou toque para girar a câmera; use a roda do mouse para aproximar.</p>
+        </div>
+
+        <div class="bg-black/40 border border-amber-500/20 rounded-xl p-3 space-y-1">
+          <p class="font-cinzel text-amber-300 font-bold uppercase text-[11px]">2. Comandos de Voz (pt-BR)</p>
+          <p>Clique em <strong>Comandar por Voz</strong> e diga instruções claras como:</p>
+          <ul class="list-disc list-inside space-y-0.5 text-amber-100/90 pt-1">
+            <li>"Peão para E4" ou "Cavalo para F3"</li>
+            <li>"Bispo de C1 para F4" (com casa de origem)</li>
+            <li>"Rainha captura F7" ou "Roque menor"</li>
+          </ul>
+          <p class="text-[11px] text-stone-400 pt-1">Dica: Você também pode digitar qualquer comando no campo de texto ou clicar na <strong>Varinha Mágica</strong> para simular uma ordem de voz.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-1">
+        <button data-action="toggleHelpModal(false)" class="btn-arcane active px-5 py-2 rounded-xl text-xs font-semibold">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE FIM DE PARTIDA (XEQUE-MATE / EMPATE) -->
+  <div id="gameover-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-7 max-w-md w-full text-center space-y-5">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-400/50 flex items-center justify-center">
+        <i data-lucide="crown" class="w-8 h-8 text-amber-300"></i>
+      </div>
+      <div class="space-y-1.5">
+        <h3 id="gameover-title" class="font-cinzel text-2xl font-bold text-amber-200">Xeque-Mate!</h3>
+        <p id="gameover-subtitle" class="text-sm text-stone-300"></p>
+      </div>
+      <div class="flex justify-center gap-3 pt-2">
+        <button data-action="toggleModal('gameover-modal', false)" class="btn-arcane px-4 py-2.5 rounded-xl text-xs">
+          Contemplar Tabuleiro
+        </button>
+        <button data-action="resetGame(true); toggleModal('gameover-modal', false);" class="btn-arcane active px-5 py-2.5 rounded-xl text-xs font-semibold">
+          Nova Batalha
+        </button>
+      </div>
+    </div>
+  </div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
