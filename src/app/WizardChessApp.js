@@ -1,1776 +1,12 @@
-<!DOCTYPE html>
-<html lang="pt-BR" class="dark">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Xadrez Bruxo — Experiência 3D Cinematográfica</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Cinzel (Títulos Fantasia/Grimório) & Inter (Leitura técnica limpa) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Three.js + OrbitControls -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <!-- Chess.js (Motor Oficial de Regras) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-
-  <style>
-    :root {
-      --obsidian: #08090d;
-      --charcoal: #12151e;
-      --bronze: #c89d5c;
-      --bronze-bright: #e5be7d;
-      --bronze-dark: #6e5023;
-      --ivory: #e8dfd1;
-    }
-
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #050609;
-      color: var(--ivory);
-      font-family: 'Inter', sans-serif;
-    }
-
-    .font-cinzel {
-      font-family: 'Cinzel', serif;
-      letter-spacing: 0.06em;
-    }
-
-    /* Vinheta Cinematográfica Sutil sobre o Canvas 3D */
-    .vignette-overlay {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 2;
-      background: radial-gradient(circle at center, transparent 58%, rgba(3, 4, 7, 0.72) 100%);
-    }
-
-    /* Painéis Grimório / Fantasia Sombria Refinados */
-    .grimoire-panel {
-      background: linear-gradient(155deg, rgba(16, 19, 26, 0.84), rgba(8, 10, 14, 0.92));
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(200, 157, 92, 0.26);
-      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 245, 225, 0.06);
-      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.28s ease, border-color 0.2s ease;
-    }
-
-    .grimoire-border-glow {
-      border-color: rgba(212, 168, 98, 0.55);
-      box-shadow: 0 0 28px rgba(197, 155, 95, 0.16), inset 0 0 14px rgba(197, 155, 95, 0.08);
-    }
-
-    .btn-arcane {
-      background: linear-gradient(180deg, rgba(32, 36, 46, 0.88) 0%, rgba(16, 18, 25, 0.95) 100%);
-      border: 1px solid rgba(197, 155, 95, 0.32);
-      color: #e8dfd1;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .btn-arcane:hover:not(:disabled) {
-      border-color: var(--bronze-bright);
-      background: linear-gradient(180deg, rgba(50, 43, 34, 0.92) 0%, rgba(25, 22, 18, 0.96) 100%);
-      box-shadow: 0 0 14px rgba(197, 155, 95, 0.25);
-      transform: translateY(-1px);
-    }
-
-    .btn-arcane:active:not(:disabled) {
-      transform: translateY(0px);
-    }
-
-    .btn-arcane.active {
-      background: linear-gradient(180deg, rgba(150, 108, 48, 0.48) 0%, rgba(74, 51, 20, 0.72) 100%);
-      border-color: #ebd09e;
-      color: #fff8eb;
-      box-shadow: 0 0 16px rgba(197, 155, 95, 0.32);
-    }
-
-    /* Scrollbar customizado */
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-    ::-webkit-scrollbar-track {
-      background: rgba(10, 12, 16, 0.55);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(197, 155, 95, 0.35);
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(197, 155, 95, 0.65);
-    }
-
-    /* Animação de pulso místico para o microfone */
-    @keyframes arcanePulse {
-      0%, 100% {
-        box-shadow: 0 0 0 0 rgba(220, 68, 55, 0.65), 0 0 18px rgba(220, 68, 55, 0.5);
-      }
-      50% {
-        box-shadow: 0 0 0 9px rgba(220, 68, 55, 0), 0 0 26px rgba(245, 95, 75, 0.85);
-      }
-    }
-
-    .mic-listening {
-      animation: arcanePulse 1.5s infinite;
-      border-color: #f87171 !important;
-      background: linear-gradient(180deg, rgba(127, 29, 29, 0.88), rgba(69, 10, 10, 0.96)) !important;
-    }
-
-    #canvas-container {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
-    }
-
-    .hud-layer {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
-      pointer-events: none;
-    }
-
-    .hud-interactive {
-      pointer-events: auto;
-    }
-
-    /* Colapso suave de painéis laterais */
-    .panel-collapsed-left {
-      transform: translateX(calc(-100% - 20px));
-      opacity: 0;
-      pointer-events: none !important;
-    }
-
-    .panel-collapsed-right {
-      transform: translateX(calc(100% + 20px));
-      opacity: 0;
-      pointer-events: none !important;
-    }
-  
-
-    /* Tela inicial: entrada de produto antes da batalha */
-    .start-screen {
-      background: radial-gradient(ellipse at 18% 12%, rgba(151, 103, 39, .22), transparent 42%),
-                  radial-gradient(ellipse at 82% 88%, rgba(35, 52, 82, .28), transparent 45%),
-                  rgba(3, 4, 7, .78);
-      backdrop-filter: blur(13px);
-      -webkit-backdrop-filter: blur(13px);
-    }
-    .start-shell {
-      grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
-      border: 1px solid rgba(210, 170, 102, .35);
-      background: linear-gradient(135deg, rgba(18, 20, 27, .97), rgba(6, 8, 12, .98));
-      box-shadow: 0 28px 100px rgba(0,0,0,.78), inset 0 1px 0 rgba(255,245,225,.07);
-    }
-    .start-hero {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 2rem;
-      min-height: 470px;
-      padding: clamp(1.5rem, 4vw, 3.25rem);
-      overflow: hidden;
-      background: radial-gradient(ellipse at 50% 45%, rgba(181, 129, 57, .13), transparent 48%),
-                  linear-gradient(145deg, rgba(27, 28, 34, .85), rgba(9, 11, 16, .5));
-      border-right: 1px solid rgba(210,170,102,.18);
-    }
-    .start-hero::after {
-      content: '';
-      position: absolute;
-      width: 340px; height: 340px;
-      right: -135px; bottom: -170px;
-      border: 1px solid rgba(212,168,98,.2);
-      border-radius: 50%;
-      box-shadow: 0 0 0 28px rgba(212,168,98,.025), 0 0 0 60px rgba(212,168,98,.02), 0 0 0 95px rgba(212,168,98,.015);
-      pointer-events: none;
-    }
-    .start-emblem {
-      display: flex; align-items: center; justify-content: center;
-      width: 66px; height: 66px; border-radius: 18px;
-      font-size: 32px; color: #f2d39b;
-      background: linear-gradient(145deg, rgba(158,111,47,.33), rgba(10,12,17,.94));
-      border: 1px solid rgba(215,175,107,.52);
-      box-shadow: 0 0 38px rgba(198,148,67,.12), inset 0 1px rgba(255,240,210,.12);
-    }
-    .start-eyebrow { color: #d8b779; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; font-weight: 700; }
-    .start-title { font-family: 'Cinzel', serif; color: #f4e8d0; line-height: 1.05; letter-spacing: .025em; }
-    .start-feature { display:flex; gap:.7rem; align-items:flex-start; color:#aaa7a0; font-size:12px; line-height:1.55; }
-    .start-feature-mark { color:#d5ad67; flex:0 0 auto; }
-    .start-controls { padding: clamp(1.25rem, 3vw, 2.4rem); display:flex; flex-direction:column; justify-content:center; gap:1.25rem; }
-    .start-label { display:block; color:#e8d6b5; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:.55rem; }
-    .start-select { width:100%; color:#f1e5d1; background:#0b0d12; border:1px solid rgba(200,157,92,.35); border-radius:10px; padding:.78rem .85rem; font-size:13px; outline:none; }
-    .start-select:focus { border-color:#e5be7d; box-shadow:0 0 0 3px rgba(229,190,125,.1); }
-    .side-choice {
-      flex:1; min-width:0; text-align:left; padding:.9rem .85rem; border-radius:12px;
-      background:linear-gradient(145deg, rgba(35,37,43,.78), rgba(10,12,17,.94));
-      border:1px solid rgba(200,157,92,.22); color:#d6d1c8; transition:all .18s ease;
-    }
-    .side-choice:hover { border-color:rgba(229,190,125,.6); transform:translateY(-1px); }
-    .side-choice.selected { border-color:#e5be7d; background:linear-gradient(145deg, rgba(135,96,41,.32), rgba(23,20,16,.96)); box-shadow:0 0 0 1px rgba(229,190,125,.14), 0 8px 24px rgba(0,0,0,.25); color:#fff2d8; }
-    .side-piece { display:block; font-size:30px; line-height:1.1; margin-bottom:.45rem; }
-    .start-play-btn { width:100%; display:flex; align-items:center; justify-content:center; gap:.65rem; border-radius:12px; padding:1rem 1.1rem; color:#17120a; font-weight:800; font-size:13px; letter-spacing:.04em; background:linear-gradient(135deg,#f0d49f,#b78235); box-shadow:0 8px 28px rgba(179,126,49,.2); transition:filter .2s, transform .2s; }
-    .start-play-btn:hover { filter:brightness(1.08); transform:translateY(-1px); }
-    .start-play-btn:active { transform:translateY(0); }
-    .start-disclaimer { color:#777775; font-size:10px; line-height:1.5; text-align:center; }
-    @media (max-width: 720px) {
-      .start-screen { overflow-y:auto; align-items:flex-start; }
-      .start-shell { grid-template-columns:1fr; max-width:460px; margin:auto; }
-      .start-hero { min-height:auto; padding:1.35rem 1.4rem 1.2rem; gap:1rem; border-right:0; border-bottom:1px solid rgba(210,170,102,.18); }
-      .start-hero .start-description, .start-features { display:none; }
-      .start-emblem { width:48px; height:48px; font-size:25px; border-radius:14px; }
-      .start-title { font-size:2rem; }
-      .start-controls { padding:1.3rem 1.4rem 1.5rem; gap:1rem; }
-    }
-
-  </style>
-</head>
-<body>
-
-  <!-- CONTAINER 3D THREE.JS -->
-  <div id="canvas-container" role="application" aria-label="Tabuleiro tridimensional de xadrez. Use o mouse ou toque para selecionar peças e destinos legais." tabindex="0" title="Arraste para orbitar a câmera • Roda do mouse aproxima • Clique em uma peça para jogar"></div>
-  <div class="vignette-overlay"></div>
-
-  <!-- CAMADA DE INTERFACE (HUD DIEGÉTICO E RETRÁTIL) -->
-  <div class="hud-layer flex flex-col justify-between p-2.5 sm:p-4">
-
-    <!-- BARRA SUPERIOR: TÍTULO, STATUS DE TURNO, MODO RÁPIDO E CÂMERA -->
-    <header class="flex flex-wrap items-start justify-between gap-2.5">
-      
-      <!-- Identidade do Produto e Estado da Partida -->
-      <div class="grimoire-panel hud-interactive rounded-xl px-3.5 py-2.5 flex items-center gap-3.5 max-w-full">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-600/35 to-stone-950 border border-amber-500/45 flex items-center justify-center shadow-inner shrink-0">
-          <i data-lucide="swords" class="w-5 h-5 text-amber-300"></i>
-        </div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="font-cinzel text-sm sm:text-base md:text-lg font-bold text-amber-100 tracking-wider truncate">XADREZ BRUXO</h1>
-            <span id="badge-check" class="hidden px-2 py-0.5 text-[10px] font-cinzel font-bold uppercase tracking-widest bg-red-900/90 text-red-200 border border-red-500/60 rounded animate-pulse">
-              XEQUE!
-            </span>
-          </div>
-          <div class="flex items-center gap-2 text-xs text-stone-300 mt-0.5 flex-wrap">
-            <span id="turn-dot" class="w-2.5 h-2.5 rounded-full bg-amber-100 shadow-[0_0_8px_#fff] shrink-0"></span>
-            <span id="status-text" class="font-medium">Turno do Marfim (Brancas)</span>
-            <span id="clock-white" class="hidden rounded border border-amber-500/30 bg-black/35 px-1.5 py-0.5 font-mono text-[11px] text-amber-100" aria-label="Relógio das Brancas">10:00</span>
-            <span id="clock-black" class="hidden rounded border border-stone-500/40 bg-black/35 px-1.5 py-0.5 font-mono text-[11px] text-stone-200" aria-label="Relógio das Pretas">10:00</span>
-            <span id="guardian-thinking" class="hidden items-center gap-1.5 text-amber-400 font-medium ml-1">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5 animate-spin"></i>
-              <span>O Guardião medita...</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Controles Rápidos Superiores: Câmera, Painéis e Grimório -->
-      <div class="flex flex-wrap items-center gap-2 hud-interactive">
-        <!-- Visões de Câmera com Transição Suave -->
-        <div class="grimoire-panel rounded-xl p-1 flex items-center gap-1">
-          <button onclick="app.setCameraPreset('white')" id="cam-white" class="btn-arcane active px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Visão do Marfim (Brancas)">
-            <i data-lucide="eye" class="w-3.5 h-3.5 text-amber-300"></i>
-            <span class="hidden md:inline">Marfim</span>
-          </button>
-          <button onclick="app.setCameraPreset('top')" id="cam-top" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Visão Tática Zenital">
-            <i data-lucide="compass" class="w-3.5 h-3.5 text-amber-300"></i>
-            <span class="hidden md:inline">Tática</span>
-          </button>
-          <button onclick="app.setCameraPreset('cinema')" id="cam-cinema" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Ângulo Dramático Diagonal">
-            <i data-lucide="film" class="w-3.5 h-3.5 text-amber-300"></i>
-            <span class="hidden md:inline">Cinema</span>
-          </button>
-          <button onclick="app.setCameraPreset('black')" id="cam-black" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Visão da Obsidiana (Pretas)">
-            <i data-lucide="shield" class="w-3.5 h-3.5 text-amber-300"></i>
-            <span class="hidden xl:inline">Obsidiana</span>
-          </button>
-        </div>
-
-        <!-- Ações Principais -->
-        <div class="grimoire-panel rounded-xl p-1 flex items-center gap-1">
-          <button onclick="app.toggleHelpModal()" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1" title="Guia de Interação e Comandos de Voz">
-            <i data-lucide="help-circle" class="w-3.5 h-3.5 text-amber-300"></i>
-            <span class="hidden lg:inline">Guia</span>
-          </button>
-          <button onclick="app.toggleModal('settings-modal')" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5" title="Configurações do Salão e Partida">
-            <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-amber-300"></i>
-            <span class="hidden sm:inline">Grimório</span>
-          </button>
-          <button onclick="app.resetGame()" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 text-amber-200" title="Reiniciar Batalha">
-            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-amber-400"></i>
-            <span class="hidden sm:inline">Reiniciar</span>
-          </button>
-        </div>
-      </div>
-
-    </header>
-
-    <!-- ÁREA CENTRAL LATERAL: PAINÉIS RETRÁTEIS DE VOZ E CRÔNICAS -->
-    <div class="relative flex flex-1 items-center justify-between pointer-events-none my-2 overflow-hidden">
-
-      <!-- Botões Flutuantes para Reabrir Painéis Quando Recolhidos -->
-      <button id="btn-expand-left" onclick="app.toggleLeftPanel()" class="hidden hud-interactive grimoire-panel btn-arcane fixed left-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-xl items-center gap-1.5 text-xs shadow-lg" title="Abrir Painel do Oráculo de Voz">
-        <i data-lucide="mic" class="w-4 h-4 text-amber-300"></i>
-        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-stone-400"></i>
-      </button>
-
-      <button id="btn-expand-right" onclick="app.toggleRightPanel()" class="hidden lg:hidden hud-interactive grimoire-panel btn-arcane fixed right-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-xl items-center gap-1.5 text-xs shadow-lg" title="Abrir Crônicas da Partida">
-        <i data-lucide="chevron-left" class="w-3.5 h-3.5 text-stone-400"></i>
-        <i data-lucide="scroll-text" class="w-4 h-4 text-amber-300"></i>
-      </button>
-
-      <!-- Painel Esquerdo: Comandos de Voz Arcanos & Peças Destruídas -->
-      <aside id="left-panel" class="grimoire-panel hud-interactive rounded-xl p-3.5 w-72 sm:w-80 flex flex-col gap-3 max-h-[70vh] overflow-y-auto">
-        <div class="flex items-center justify-between border-b border-amber-500/20 pb-2">
-          <div class="flex items-center gap-2">
-            <i data-lucide="mic" class="w-4 h-4 text-amber-400"></i>
-            <h2 class="font-cinzel text-xs font-bold uppercase tracking-wider text-amber-200">Oráculo de Voz</h2>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span id="voice-status-badge" class="text-[10px] px-2 py-0.5 rounded bg-stone-800/90 text-stone-300 border border-stone-700">
-              Pronto (pt-BR)
-            </span>
-            <button onclick="app.toggleLeftPanel()" class="text-stone-400 hover:text-amber-200 p-0.5 rounded" title="Recolher Painel">
-              <i data-lucide="panel-left-close" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Botão Principal de Microfone + Simulador -->
-        <div class="flex gap-2">
-          <button id="btn-mic" onclick="app.toggleVoiceRecognition()" class="btn-arcane flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold">
-            <i data-lucide="mic" class="w-4 h-4 text-amber-300"></i>
-            <span id="btn-mic-label">Comandar por Voz</span>
-          </button>
-          <button onclick="app.testVoiceDemo()" class="btn-arcane px-2.5 py-2.5 rounded-lg text-xs" title="Simular comando de voz válido na posição atual">
-            <i data-lucide="wand-2" class="w-4 h-4 text-amber-300"></i>
-          </button>
-        </div>
-
-        <!-- Feedback de Transcrição e Interpretação -->
-        <div class="bg-black/50 rounded-lg p-2.5 border border-stone-800/90 text-xs space-y-1">
-          <div class="flex items-center justify-between text-[11px] text-stone-400">
-            <span>Voz reconhecida:</span>
-            <span id="voice-coord-hint" class="font-mono text-amber-400 font-semibold"></span>
-          </div>
-          <p id="voice-transcript" class="text-stone-200 italic min-h-[1.25rem]">
-            "Peão para E4", "Cavalo para F3"...
-          </p>
-          <p id="voice-feedback" class="text-[11px] text-amber-300/95 leading-snug min-h-[1rem]"></p>
-        </div>
-
-        <!-- Fallback / Entrada de Comando Direto por Texto -->
-        <form onsubmit="app.handleTextCommandSubmit(event)" class="flex gap-1.5">
-          <input
-            id="command-input"
-            type="text"
-            autocomplete="off"
-            placeholder="Digite: Cavalo para F3 ou e2e4..."
-            class="flex-1 bg-stone-950/90 border border-amber-500/30 rounded-lg px-2.5 py-1.5 text-xs text-amber-100 placeholder-stone-500 focus:outline-none focus:border-amber-400"
-          />
-          <button type="submit" class="btn-arcane px-2.5 py-1.5 rounded-lg text-xs" title="Executar Ordem Escrita">
-            <i data-lucide="send" class="w-3.5 h-3.5 text-amber-300"></i>
-          </button>
-        </form>
-
-        <!-- Lista de Ambiguidade (Aparece quando 2 peças iguais podem ir à mesma casa) -->
-        <div id="ambiguity-box" class="hidden bg-amber-950/50 border border-amber-500/50 rounded-lg p-2.5 space-y-2">
-          <p class="text-[11px] text-amber-200 font-medium">
-            Ordem ambígua! Escolha qual peça deve avançar:
-          </p>
-          <div id="ambiguity-options" class="flex flex-wrap gap-1.5"></div>
-        </div>
-
-        <!-- Cemitério de Peças Destruídas & Vantagem Material -->
-        <div class="border-t border-amber-500/20 pt-2.5 space-y-2">
-          <div class="flex items-center justify-between text-[11px] text-stone-400">
-            <span>Obsidiana destruída:</span>
-            <span id="material-adv-white" class="text-amber-300 font-mono font-semibold text-[11px]"></span>
-          </div>
-          <div id="captured-black" class="flex flex-wrap gap-1 min-h-[22px] text-sm text-stone-300"></div>
-
-          <div class="flex items-center justify-between text-[11px] text-stone-400 pt-1">
-            <span>Marfim destruído:</span>
-            <span id="material-adv-black" class="text-amber-300 font-mono font-semibold text-[11px]"></span>
-          </div>
-          <div id="captured-white" class="flex flex-wrap gap-1 min-h-[22px] text-sm text-amber-200"></div>
-        </div>
-      </aside>
-
-      <!-- Painel Direito: Crônicas da Partida (Histórico Algébrico) -->
-      <aside id="right-panel" class="hidden lg:flex grimoire-panel hud-interactive rounded-xl p-3.5 w-68 flex-col gap-2.5 max-h-[68vh]">
-        <div class="flex items-center justify-between border-b border-amber-500/20 pb-2">
-          <div class="flex items-center gap-2">
-            <i data-lucide="scroll-text" class="w-4 h-4 text-amber-400"></i>
-            <h2 class="font-cinzel text-xs font-bold uppercase tracking-wider text-amber-200">Crônicas do Salão</h2>
-          </div>
-          <div class="flex items-center gap-2">
-            <span id="move-counter" class="text-[10px] font-mono text-stone-400">Lance 1</span>
-            <button onclick="app.toggleRightPanel()" class="text-stone-400 hover:text-amber-200 p-0.5 rounded" title="Recolher Crônicas">
-              <i data-lucide="panel-right-close" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-
-        <div id="move-history" class="flex-1 overflow-y-auto space-y-1 pr-1 text-xs font-mono min-h-[160px] max-h-[38vh]">
-          <div class="text-stone-500 italic font-sans text-[11px] py-4 text-center">
-            As esculturas aguardam o primeiro comando...
-          </div>
-        </div>
-
-        <!-- Ferramentas locais de xadrez: histórico, salvamento e intercâmbio -->
-        <div class="border-t border-amber-500/20 pt-2.5 space-y-2">
-          <p class="text-[10px] uppercase tracking-[.18em] text-amber-300/80 font-semibold">Ferramentas do grimório</p>
-          <div class="grid grid-cols-2 gap-1.5">
-            <button onclick="app.undoMove()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]" title="Desfazer o último lance">↶ Desfazer</button>
-            <button onclick="app.redoMove()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]" title="Refazer lance desfeito">↷ Refazer</button>
-            <button onclick="app.saveGame()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Salvar partida</button>
-            <button onclick="app.loadSavedGame()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Retomar salva</button>
-            <button onclick="app.exportPGN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Exportar PGN</button>
-            <button onclick="app.importPGN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Importar PGN</button>
-            <button onclick="app.showFEN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Ver FEN</button>
-            <button onclick="app.copyFEN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Copiar FEN</button>
-            <button onclick="app.importFEN()" class="btn-arcane rounded-lg px-2 py-2 text-[11px] col-span-2">Carregar posição FEN</button>
-            <button onclick="app.offerDraw()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Oferecer empate</button>
-            <button onclick="app.resignGame()" class="btn-arcane rounded-lg px-2 py-2 text-[11px]">Desistir</button>
-          </div>
-          <button onclick="app.returnToMenu()" class="btn-arcane w-full rounded-lg px-2 py-2 text-[11px]">⟵ Menu principal</button>
-        </div>
-
-        <!-- Modo de Jogo & Dificuldade Rápida -->
-        <div class="border-t border-amber-500/20 pt-2.5 space-y-2 text-xs">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-stone-400 text-[11px]">Adversário:</span>
-            <select id="select-mode" onchange="app.changeGameMode(this.value)" class="bg-stone-900 border border-amber-500/35 rounded px-2 py-1 text-[11px] text-amber-100 focus:outline-none">
-              <option value="ai">Guardião Arcano (IA)</option>
-              <option value="local">Duelo Local (2 Jogadores)</option>
-            </select>
-          </div>
-          <div id="difficulty-row" class="flex items-center justify-between gap-2">
-            <span class="text-stone-400 text-[11px]">Poder do Guardião:</span>
-            <select id="select-difficulty" onchange="app.changeDifficulty(this.value)" class="bg-stone-900 border border-amber-500/35 rounded px-2 py-1 text-[11px] text-amber-100 focus:outline-none">
-              <option value="1">Aprendiz (Nível 1)</option>
-              <option value="2" selected>Mestre Arcano (Nível 2)</option>
-              <option value="3">Grão-Mestre (Nível 3)</option>
-            </select>
-          </div>
-        </div>
-      </aside>
-
-    </div>
-
-    <!-- BARRA INFERIOR: BANNER DE EVENTOS E CONTROLES DE ÁUDIO/ANIMAÇÃO -->
-    <footer class="flex flex-wrap items-center justify-between gap-2">
-      <div class="grimoire-panel hud-interactive rounded-xl px-3.5 py-2 flex items-center gap-2.5 text-xs text-stone-300 max-w-full">
-        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
-        <span id="last-move-banner" class="truncate">Clique em uma peça de Marfim ou comande por voz.</span>
-      </div>
-
-      <div class="grimoire-panel hud-interactive rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-xs">
-        <button onclick="app.toggleLeftPanel()" class="btn-arcane px-2 py-1 rounded-lg flex sm:hidden items-center gap-1" title="Mostrar/Ocultar Painel de Voz">
-          <i data-lucide="mic" class="w-3.5 h-3.5 text-amber-300"></i>
-        </button>
-        <button onclick="app.toggleSound()" id="btn-sfx" class="btn-arcane active px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Alternar Efeitos Sonoros de Pedra e Impacto">
-          <i data-lucide="volume-2" class="w-3.5 h-3.5 text-amber-300"></i>
-          <span class="hidden sm:inline">Sons</span>
-        </button>
-        <button onclick="app.toggleVoiceAnnounce()" id="btn-tts" class="btn-arcane active px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Alternar Narração de Voz das Jogadas">
-          <i data-lucide="message-square-quote" class="w-3.5 h-3.5 text-amber-300"></i>
-          <span class="hidden sm:inline">Narração</span>
-        </button>
-        <button onclick="app.cycleAnimSpeed()" id="btn-anim-speed" class="btn-arcane px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Velocidade das Capturas Cinematográficas">
-          <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-300"></i>
-          <span id="anim-speed-label">Cinema</span>
-        </button>
-      </div>
-    </footer>
-
-  </div>
-
-
-  <!-- TELA INICIAL: CONFIGURAÇÃO DA BATALHA ANTES DE LIBERAR O TABULEIRO -->
-  <div id="start-screen" class="start-screen fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="start-title">
-    <div class="start-shell relative grid w-full max-w-5xl overflow-hidden rounded-3xl">
-      <section class="start-hero">
-        <div class="space-y-6">
-          <div class="start-emblem" aria-hidden="true">♜</div>
-          <div class="space-y-3">
-            <p class="start-eyebrow">Uma batalha entre Marfim e Obsidiana</p>
-            <h1 id="start-title" class="start-title text-4xl sm:text-5xl font-bold">Xadrez<br><span style="color:#d9b16b">Bruxo</span></h1>
-            <p class="start-description max-w-sm text-sm leading-7 text-stone-400">Entre no salão, escolha suas peças e desafie o Guardião Arcano. Cada movimento tem peso, cada captura deixa sua marca.</p>
-          </div>
-        </div>
-        <div class="start-features relative z-10 space-y-4">
-          <div class="start-feature"><span class="start-feature-mark">✦</span><span><strong class="text-stone-200">Um salão em 3D</strong><br>Pedra, bronze, luzes e esculturas em uma arena cinematográfica.</span></div>
-          <div class="start-feature"><span class="start-feature-mark">✦</span><span><strong class="text-stone-200">Escolha sua estratégia</strong><br>Jogue contra a IA ou enfrente outra pessoa no mesmo dispositivo.</span></div>
-        </div>
-        <p class="start-eyebrow relative z-10">Prepare-se para a partida</p>
-      </section>
-
-      <section class="start-controls">
-        <div class="space-y-1">
-          <p class="start-eyebrow">Novo confronto</p>
-          <h2 class="font-cinzel text-xl font-bold text-amber-100">Prepare sua batalha</h2>
-          <p class="text-xs leading-5 text-stone-500">Defina as regras antes de entrar no tabuleiro.</p>
-        </div>
-        <form id="start-game-form" class="space-y-5" onsubmit="event.preventDefault(); app.startNewGameFromMenu();">
-          <div>
-            <label class="start-label" for="start-mode">Modo de jogo</label>
-            <select id="start-mode" class="start-select" onchange="app.updateStartMenuMode(this.value)">
-              <option value="ai" selected>Contra o Guardião Arcano (IA)</option>
-              <option value="local">Duelo local — 2 jogadores</option>
-            </select>
-          </div>
-
-          <div id="start-color-group">
-            <span class="start-label">Escolha seu exército</span>
-            <div class="flex gap-3">
-              <button type="button" id="start-color-white" class="side-choice selected" aria-pressed="true" onclick="app.selectStartingColor('w')">
-                <span class="side-piece" aria-hidden="true" style="color:#eadcc2;text-shadow:0 2px 8px #000">♔</span>
-                <span class="block text-sm font-semibold">Marfim</span>
-                <span class="block mt-1 text-[10px] text-stone-500">Brancas · começam</span>
-              </button>
-              <button type="button" id="start-color-black" class="side-choice" aria-pressed="false" onclick="app.selectStartingColor('b')">
-                <span class="side-piece" aria-hidden="true" style="color:#69717f;text-shadow:0 2px 8px #000">♚</span>
-                <span class="block text-sm font-semibold">Obsidiana</span>
-                <span class="block mt-1 text-[10px] text-stone-500">Pretas · segundo turno</span>
-              </button>
-            </div>
-            <p id="start-color-note" class="mt-2 text-[10px] leading-4 text-stone-500">Ao escolher Obsidiana, a IA fará a primeira jogada automaticamente.</p>
-          </div>
-
-          <div>
-            <label class="start-label" for="start-time-control">Relógio da partida</label>
-            <select id="start-time-control" class="start-select" onchange="app.setClockControl(this.value)">
-              <option value="off">Sem limite de tempo</option>
-              <option value="300+0">5 minutos</option>
-              <option value="600+0" selected>10 minutos</option>
-              <option value="900+10">15 minutos + 10 segundos</option>
-            </select>
-            <p class="mt-1 text-[10px] text-stone-500">O relógio é opcional e roda localmente durante a partida.</p>
-          </div>
-
-          <div id="start-difficulty-group">
-            <label class="start-label" for="start-difficulty">Dificuldade do Guardião</label>
-            <select id="start-difficulty" class="start-select">
-              <option value="1">Aprendiz — ideal para começar</option>
-              <option value="2" selected>Mestre Arcano — desafio equilibrado</option>
-              <option value="3">Grão-Mestre — maior profundidade</option>
-            </select>
-          </div>
-
-          <button type="submit" class="start-play-btn" aria-label="Iniciar nova partida com as opções escolhidas"><span>Entrar no salão</span><span aria-hidden="true">→</span></button>
-          <p class="start-disclaimer">As regras seguem o xadrez clássico. Você pode ajustar som, câmera e qualidade dentro da partida.</p>
-        </form>
-      </section>
-    </div>
-  </div>
-
-  <!-- MODAL DE PROMOÇÃO DE PEÃO -->
-  <div id="promotion-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-6 max-w-md w-full text-center space-y-5">
-      <div class="space-y-1">
-        <h3 class="font-cinzel text-xl font-bold text-amber-200">Ascensão Arcana</h3>
-        <p class="text-xs text-stone-300">Seu peão alcançou a última fileira. Escolha em qual escultura monolítica ele deve renascer:</p>
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button onclick="app.confirmPromotion('q')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
-          <span class="text-3xl text-amber-300">♛</span>
-          <span class="font-cinzel text-xs font-bold text-amber-100">Rainha</span>
-        </button>
-        <button onclick="app.confirmPromotion('r')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
-          <span class="text-3xl text-amber-300">♜</span>
-          <span class="font-cinzel text-xs font-bold text-amber-100">Torre</span>
-        </button>
-        <button onclick="app.confirmPromotion('b')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
-          <span class="text-3xl text-amber-300">♝</span>
-          <span class="font-cinzel text-xs font-bold text-amber-100">Bispo</span>
-        </button>
-        <button onclick="app.confirmPromotion('n')" class="btn-arcane p-3.5 rounded-xl flex flex-col items-center gap-2">
-          <span class="text-3xl text-amber-300">♞</span>
-          <span class="font-cinzel text-xs font-bold text-amber-100">Cavalo</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL DE CONFIGURAÇÕES DO SALÃO E DA PARTIDA (GRIMÓRIO) -->
-  <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-6 max-w-md w-full space-y-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between border-b border-amber-500/25 pb-3">
-        <h3 class="font-cinzel text-lg font-bold text-amber-200 flex items-center gap-2">
-          <i data-lucide="sliders-horizontal" class="w-5 h-5 text-amber-400"></i>
-          Grimório do Salão
-        </h3>
-        <button onclick="app.toggleModal('settings-modal', false)" class="text-stone-400 hover:text-amber-200">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3.5 text-xs">
-        <!-- Modo e Dificuldade sincronizados (útil em telas menores) -->
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="font-semibold text-amber-100">Modo de Partida</p>
-            <p class="text-stone-400 text-[11px]">Enfrente o Guardião IA ou jogue em 2 pessoas</p>
-          </div>
-          <select id="modal-select-mode" onchange="app.changeGameMode(this.value)" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
-            <option value="ai">Guardião Arcano (IA)</option>
-            <option value="local">Duelo Local (2 Jogadores)</option>
-          </select>
-        </div>
-
-        <div id="modal-difficulty-row" class="flex items-center justify-between">
-          <div>
-            <p class="font-semibold text-amber-100">Poder do Guardião (IA)</p>
-            <p class="text-stone-400 text-[11px]">Profundidade tática do oponente</p>
-          </div>
-          <select id="modal-select-difficulty" onchange="app.changeDifficulty(this.value)" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
-            <option value="1">Aprendiz (Nível 1)</option>
-            <option value="2" selected>Mestre Arcano (Nível 2)</option>
-            <option value="3">Grão-Mestre (Nível 3)</option>
-          </select>
-        </div>
-
-        <div class="flex items-center justify-between border-t border-amber-500/15 pt-3">
-          <div>
-            <p class="font-semibold text-amber-100">Qualidade Gráfica e Sombras</p>
-            <p class="text-stone-400 text-[11px]">Ajusta sombras projetadas, braseiros e estilhaços</p>
-          </div>
-          <select id="setting-quality" onchange="app.setGraphicsQuality(this.value)" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
-            <option value="high" selected>Alta (Cinematográfica)</option>
-            <option value="performance">Desempenho (Leve)</option>
-          </select>
-        </div>
-
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="font-semibold text-amber-100">Coreografia de Captura</p>
-            <p class="text-stone-400 text-[11px]">Intensidade e velocidade das colisões físicas</p>
-          </div>
-          <select id="setting-anim" onchange="app.setAnimMode(this.value)" class="bg-stone-900 border border-amber-500/40 rounded-lg px-3 py-1.5 text-amber-100">
-            <option value="cinema" selected>Cinematográfica</option>
-            <option value="fast">Rápida</option>
-            <option value="instant">Instantânea</option>
-          </select>
-        </div>
-
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="font-semibold text-amber-100">Vibração da Câmera em Capturas</p>
-            <p class="text-stone-400 text-[11px]">Tremor sutil e breve no impacto da destruição</p>
-          </div>
-          <input id="setting-cam-focus" type="checkbox" checked onchange="app.toggleCaptureCameraFocus(this.checked)" class="w-4 h-4 accent-amber-500 rounded cursor-pointer" />
-        </div>
-      </div>
-
-      <div class="flex justify-end pt-2">
-        <button onclick="app.toggleModal('settings-modal', false)" class="btn-arcane active px-5 py-2 rounded-xl text-xs font-semibold">
-          Retornar ao Salão
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL DE GUIA RÁPIDO E PRIMEIRA UTILIZAÇÃO -->
-  <div id="help-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-6 max-w-md w-full space-y-4">
-      <div class="flex items-center justify-between border-b border-amber-500/25 pb-3">
-        <h3 class="font-cinzel text-lg font-bold text-amber-200 flex items-center gap-2">
-          <i data-lucide="book-open" class="w-5 h-5 text-amber-400"></i>
-          Manual do Xadrez Bruxo
-        </h3>
-        <button onclick="app.toggleHelpModal(false)" class="text-stone-400 hover:text-amber-200">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="space-y-3 text-xs text-stone-300 leading-relaxed">
-        <div class="bg-black/40 border border-amber-500/20 rounded-xl p-3 space-y-1">
-          <p class="font-cinzel text-amber-300 font-bold uppercase text-[11px]">1. Controles Táticos & Câmera</p>
-          <p>• <strong>Selecionar e Mover:</strong> Clique em uma escultura de Marfim para revelar os destinos legais (azul) e capturas (vermelho).</p>
-          <p>• <strong>Orbitar Salão:</strong> Arraste com o botão esquerdo ou toque para girar a câmera; use a roda do mouse para aproximar.</p>
-        </div>
-
-        <div class="bg-black/40 border border-amber-500/20 rounded-xl p-3 space-y-1">
-          <p class="font-cinzel text-amber-300 font-bold uppercase text-[11px]">2. Comandos de Voz (pt-BR)</p>
-          <p>Clique em <strong>Comandar por Voz</strong> e diga instruções claras como:</p>
-          <ul class="list-disc list-inside space-y-0.5 text-amber-100/90 pt-1">
-            <li>"Peão para E4" ou "Cavalo para F3"</li>
-            <li>"Bispo de C1 para F4" (com casa de origem)</li>
-            <li>"Rainha captura F7" ou "Roque menor"</li>
-          </ul>
-          <p class="text-[11px] text-stone-400 pt-1">Dica: Você também pode digitar qualquer comando no campo de texto ou clicar na <strong>Varinha Mágica</strong> para simular uma ordem de voz.</p>
-        </div>
-      </div>
-
-      <div class="flex justify-end pt-1">
-        <button onclick="app.toggleHelpModal(false)" class="btn-arcane active px-5 py-2 rounded-xl text-xs font-semibold">
-          Entendido
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL DE FIM DE PARTIDA (XEQUE-MATE / EMPATE) -->
-  <div id="gameover-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
-    <div class="grimoire-panel grimoire-border-glow rounded-2xl p-7 max-w-md w-full text-center space-y-5">
-      <div class="w-14 h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-400/50 flex items-center justify-center">
-        <i data-lucide="crown" class="w-8 h-8 text-amber-300"></i>
-      </div>
-      <div class="space-y-1.5">
-        <h3 id="gameover-title" class="font-cinzel text-2xl font-bold text-amber-200">Xeque-Mate!</h3>
-        <p id="gameover-subtitle" class="text-sm text-stone-300"></p>
-      </div>
-      <div class="flex justify-center gap-3 pt-2">
-        <button onclick="app.toggleModal('gameover-modal', false)" class="btn-arcane px-4 py-2.5 rounded-xl text-xs">
-          Contemplar Tabuleiro
-        </button>
-        <button onclick="app.resetGame(true); app.toggleModal('gameover-modal', false);" class="btn-arcane active px-5 py-2.5 rounded-xl text-xs font-semibold">
-          Nova Batalha
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    /**
-     * ============================================================================
-     * MÓDULO 1: SINTETIZADOR DE ÁUDIO PROCEDURAL E NARRAÇÃO (WEB AUDIO + TTS)
-     * Sons orgânicos de pedra arrastando, seleção, lance ilegal, colisão rochosa,
-     * estilhaços e acordes solenes de xeque.
-     * ============================================================================
-     */
-    class ArcaneAudioEngine {
-      constructor() {
-        this.ctx = null;
-        this.sfxEnabled = true;
-        this.ttsEnabled = true;
-      }
-
-      initContext() {
-        if (!this.ctx) {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          if (AudioCtx) this.ctx = new AudioCtx();
-        }
-        if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
-      }
-
-      // Clique sutil de pedra ao selecionar uma escultura
-      playSelectChime() {
-        if (!this.sfxEnabled) return;
-        this.initContext();
-        if (!this.ctx) return;
-
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(320, now);
-        osc.frequency.exponentialRampToValueAtTime(480, now + 0.08);
-
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.095);
-      }
-
-      // Batida grave seca quando o usuário tenta um movimento ilegal
-      playIllegalThud() {
-        if (!this.sfxEnabled) return;
-        this.initContext();
-        if (!this.ctx) return;
-
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(110, now);
-        osc.frequency.exponentialRampToValueAtTime(52, now + 0.16);
-
-        gain.gain.setValueAtTime(0.22, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.18);
-      }
-
-      // Som grave de escultura monolítica deslizando no tabuleiro
-      playStoneSlide(duration = 0.38) {
-        if (!this.sfxEnabled) return;
-        this.initContext();
-        if (!this.ctx) return;
-
-        const now = this.ctx.currentTime;
-        const bufferSize = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          data[i] = (Math.random() * 2 - 1) * 0.5;
-        }
-
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
-
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(130, now);
-        filter.frequency.linearRampToValueAtTime(190, now + duration * 0.6);
-        filter.frequency.linearRampToValueAtTime(105, now + duration);
-        filter.Q.value = 3.2;
-
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.01, now);
-        gain.gain.linearRampToValueAtTime(0.24, now + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.006, now + duration);
-
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        noise.start(now);
-        noise.stop(now + duration);
-      }
-
-      // Impacto brutal + estilhaçamento de pedra para capturas cinematográficas
-      playStoneShatter() {
-        if (!this.sfxEnabled) return;
-        this.initContext();
-        if (!this.ctx) return;
-
-        const now = this.ctx.currentTime;
-
-        // 1. Sub-grave de impacto físico
-        const osc = this.ctx.createOscillator();
-        const impactGain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(155, now);
-        osc.frequency.exponentialRampToValueAtTime(30, now + 0.36);
-
-        impactGain.gain.setValueAtTime(0.6, now);
-        impactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
-
-        osc.connect(impactGain);
-        impactGain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.39);
-
-        // 2. Estalos de fragmentos de rocha quicando no tabuleiro
-        for (let i = 0; i < 7; i++) {
-          const delay = 0.025 + i * 0.042 + Math.random() * 0.025;
-          const fragDur = 0.075 + Math.random() * 0.08;
-          const bufSize = Math.floor(this.ctx.sampleRate * fragDur);
-          const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
-          const ch = buf.getChannelData(0);
-          for (let j = 0; j < bufSize; j++) {
-            ch[j] = (Math.random() * 2 - 1) * Math.exp(-j / (bufSize * 0.34));
-          }
-
-          const src = this.ctx.createBufferSource();
-          src.buffer = buf;
-
-          const bandpass = this.ctx.createBiquadFilter();
-          bandpass.type = 'bandpass';
-          bandpass.frequency.value = 520 + Math.random() * 1350;
-          bandpass.Q.value = 2.1;
-
-          const g = this.ctx.createGain();
-          g.gain.setValueAtTime(0.26 / (1 + i * 0.25), now + delay);
-          g.gain.exponentialRampToValueAtTime(0.004, now + delay + fragDur);
-
-          src.connect(bandpass);
-          bandpass.connect(g);
-          g.connect(this.ctx.destination);
-          src.start(now + delay);
-        }
-      }
-
-      // Alerta místico para Xeque ou Fim de Partida
-      playArcaneChord(isMate = false) {
-        if (!this.sfxEnabled) return;
-        this.initContext();
-        if (!this.ctx) return;
-
-        const now = this.ctx.currentTime;
-        const freqs = isMate ? [196.0, 233.08, 293.66, 392.0] : [220.0, 261.63, 329.63];
-
-        freqs.forEach((f, idx) => {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(f, now + idx * 0.06);
-
-          gain.gain.setValueAtTime(0.001, now + idx * 0.06);
-          gain.gain.linearRampToValueAtTime(0.11, now + idx * 0.06 + 0.08);
-          gain.gain.exponentialRampToValueAtTime(0.0008, now + 1.35);
-
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now + idx * 0.06);
-          osc.stop(now + 1.4);
-        });
-      }
-
-      // Narração em Português Brasileiro via Web Speech Synthesis
-      speakMove(text) {
-        if (!this.ttsEnabled || !('speechSynthesis' in window)) return;
-        try {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'pt-BR';
-          utterance.rate = 1.02;
-          utterance.pitch = 0.88;
-          const voices = window.speechSynthesis.getVoices();
-          const ptVoice = voices.find(v => v.lang.includes('pt-BR') || v.lang.includes('pt'));
-          if (ptVoice) utterance.voice = ptVoice;
-          window.speechSynthesis.speak(utterance);
-        } catch (err) {
-          // Silencioso caso bloqueado pelo navegador
-        }
-      }
-    }
-
-    /**
-     * ============================================================================
-     * MÓDULO 2: INTELIGÊNCIA ARTIFICIAL ADVERSÁRIA ("O GUARDIÃO")
-     * Avaliador posicional com Tabelas Peça-Quadrado (PST) e Minimax Alpha-Beta.
-     * ============================================================================
-     */
-    class GuardianAI {
-      constructor() {
-        this.pieceValues = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
-        this.pst = {
-          p: [
-            [0,  0,  0,  0,  0,  0,  0,  0],
-            [50, 50, 50, 50, 50, 50, 50, 50],
-            [10, 10, 20, 30, 30, 20, 10, 10],
-            [5,  5, 10, 25, 25, 10,  5,  5],
-            [0,  0,  0, 20, 20,  0,  0,  0],
-            [5, -5,-10,  0,  0,-10, -5,  5],
-            [5, 10, 10,-20,-20, 10, 10,  5],
-            [0,  0,  0,  0,  0,  0,  0,  0]
-          ],
-          n: [
-            [-50,-40,-30,-30,-30,-30,-40,-50],
-            [-40,-20,  0,  0,  0,  0,-20,-40],
-            [-30,  0, 10, 15, 15, 10,  0,-30],
-            [-30,  5, 15, 20, 20, 15,  5,-30],
-            [-30,  0, 15, 20, 20, 15,  0,-30],
-            [-30,  5, 10, 15, 15, 10,  5,-30],
-            [-40,-20,  0,  5,  5,  0,-20,-40],
-            [-50,-40,-30,-30,-30,-30,-40,-50]
-          ],
-          b: [
-            [-20,-10,-10,-10,-10,-10,-10,-20],
-            [-10,  0,  0,  0,  0,  0,  0,-10],
-            [-10,  0,  5, 10, 10,  5,  0,-10],
-            [-10,  5,  5, 10, 10,  5,  5,-10],
-            [-10,  0, 10, 10, 10, 10,  0,-10],
-            [-10, 10, 10, 10, 10, 10, 10,-10],
-            [-10,  5,  0,  0,  0,  0,  5,-10],
-            [-20,-10,-10,-10,-10,-10,-10,-20]
-          ],
-          r: [
-            [0,  0,  0,  0,  0,  0,  0,  0],
-            [5, 10, 10, 10, 10, 10, 10,  5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [0,  0,  0,  5,  5,  0,  0,  0]
-          ],
-          q: [
-            [-20,-10,-10, -5, -5,-10,-10,-20],
-            [-10,  0,  0,  0,  0,  0,  0,-10],
-            [-10,  0,  5,  5,  5,  5,  0,-10],
-            [-5,  0,  5,  5,  5,  5,  0, -5],
-            [0,  0,  5,  5,  5,  5,  0, -5],
-            [-10,  5,  5,  5,  5,  5,  0,-10],
-            [-10,  0,  5,  0,  0,  0,  0,-10],
-            [-20,-10,-10, -5, -5,-10,-10,-20]
-          ],
-          k: [
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-20,-30,-30,-40,-40,-30,-30,-20],
-            [-10,-20,-20,-20,-20,-20,-20,-10],
-            [20, 20,  0,  0,  0,  0, 20, 20],
-            [20, 30, 10,  0,  0, 10, 30, 20]
-          ]
-        };
-      }
-
-      evaluateBoard(chessInstance) {
-        if (chessInstance.in_checkmate()) {
-          return chessInstance.turn() === 'w' ? -99999 : 99999;
-        }
-        if (chessInstance.in_draw() || chessInstance.in_stalemate() || chessInstance.in_threefold_repetition()) {
-          return 0;
-        }
-
-        const board = chessInstance.board();
-        let score = 0;
-
-        for (let r = 0; r < 8; r++) {
-          for (let c = 0; c < 8; c++) {
-            const piece = board[r][c];
-            if (!piece) continue;
-            const base = this.pieceValues[piece.type] || 0;
-            const table = this.pst[piece.type];
-            const pstRow = piece.color === 'w' ? r : 7 - r;
-            const positional = table ? table[pstRow][c] : 0;
-
-            if (piece.color === 'w') {
-              score += base + positional;
-            } else {
-              score -= base + positional;
-            }
-          }
-        }
-        return score;
-      }
-
-      chooseBestMove(fen, level = 2) {
-        const sim = new Chess(fen);
-        const legalMoves = sim.moves({ verbose: true });
-        if (legalMoves.length === 0) return null;
-
-        if (level === 1) {
-          const captures = legalMoves.filter(m => m.captured);
-          if (captures.length > 0 && Math.random() < 0.65) {
-            return captures[Math.floor(Math.random() * captures.length)];
-          }
-          return legalMoves[Math.floor(Math.random() * legalMoves.length)];
-        }
-
-        const depth = level === 2 ? 2 : 3;
-        const isMaximizing = sim.turn() === 'w';
-
-        legalMoves.sort((a, b) => (b.captured ? 10 : 0) - (a.captured ? 10 : 0));
-
-        let bestMove = legalMoves[0];
-        let bestValue = isMaximizing ? -Infinity : Infinity;
-
-        for (const move of legalMoves) {
-          sim.move(move);
-          const value = this.minimax(sim, depth - 1, -Infinity, Infinity, !isMaximizing);
-          sim.undo();
-
-          const jitter = (Math.random() - 0.5) * 6;
-          const finalVal = value + jitter;
-
-          if (isMaximizing) {
-            if (finalVal > bestValue) {
-              bestValue = finalVal;
-              bestMove = move;
-            }
-          } else {
-            if (finalVal < bestValue) {
-              bestValue = finalVal;
-              bestMove = move;
-            }
-          }
-        }
-
-        return bestMove;
-      }
-
-      minimax(sim, depth, alpha, beta, isMaximizing) {
-        if (depth === 0 || sim.game_over()) {
-          return this.evaluateBoard(sim);
-        }
-
-        const moves = sim.moves({ verbose: true });
-        moves.sort((a, b) => (b.captured ? 10 : 0) - (a.captured ? 10 : 0));
-
-        if (isMaximizing) {
-          let maxEval = -Infinity;
-          for (const m of moves) {
-            sim.move(m);
-            const ev = this.minimax(sim, depth - 1, alpha, beta, false);
-            sim.undo();
-            maxEval = Math.max(maxEval, ev);
-            alpha = Math.max(alpha, ev);
-            if (beta <= alpha) break;
-          }
-          return maxEval;
-        } else {
-          let minEval = Infinity;
-          for (const m of moves) {
-            sim.move(m);
-            const ev = this.minimax(sim, depth - 1, alpha, beta, true);
-            sim.undo();
-            minEval = Math.min(minEval, ev);
-            beta = Math.min(beta, ev);
-            if (beta <= alpha) break;
-          }
-          return minEval;
-        }
-      }
-    }
-
-    /**
-     * ============================================================================
-     * MÓDULO 3: INTERPRETADOR DE COMANDOS DE VOZ EM PORTUGUÊS (PT-BR)
-     * Traduz linguagem natural ("Cavalo de G1 para F3", "Bispo captura C4", "Roque")
-     * em movimentos validados contra o estado oficial do chess.js.
-     * ============================================================================
-     */
-    class PortugueseVoiceCommandParser {
-      static parse(rawText, chessInstance) {
-        if (!rawText || !rawText.trim()) {
-          return { status: 'error', message: 'Nenhum comando foi reconhecido.' };
-        }
-
-        const clean = rawText
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9\s]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        const legalMoves = chessInstance.moves({ verbose: true });
-
-        // 1. Verificar Roque
-        if (clean.includes('roque') || clean.includes('rock')) {
-          const isQueenside = clean.includes('maior') || clean.includes('grande') || clean.includes('dama') || clean.includes('rainha') || clean.includes('largo');
-          const castleMove = legalMoves.find(m =>
-            isQueenside ? m.san === 'O-O-O' : m.san === 'O-O'
-          ) || legalMoves.find(m => m.san.startsWith('O-O'));
-
-          if (castleMove) {
-            return { status: 'ok', move: castleMove };
-          }
-          return { status: 'error', message: 'O roque não é legal na posição atual.' };
-        }
-
-        // 2. Normalizar números e colunas falados por extenso em português
-        let normalized = clean
-          .replace(/\b(um|uma|primeiro|primeira)\b/g, '1')
-          .replace(/\b(dois|duas|segundo|segunda)\b/g, '2')
-          .replace(/\b(tres|terceiro|terceira)\b/g, '3')
-          .replace(/\b(quatro|quarto|quarta)\b/g, '4')
-          .replace(/\b(cinco|quinto|quinta)\b/g, '5')
-          .replace(/\b(seis|meia|sexto|sexta)\b/g, '6')
-          .replace(/\b(sete|setimo|setima)\b/g, '7')
-          .replace(/\b(oito|oitavo|oitava)\b/g, '8')
-          .replace(/\b(be|bê)\s*([1-8])\b/g, 'b$2')
-          .replace(/\b(ce|cê|se)\s*([1-8])\b/g, 'c$2')
-          .replace(/\b(de|dê)\s*([1-8])\b/g, 'd$2')
-          .replace(/\b(e|eh|ê)\s*([1-8])\b/g, 'e$2')
-          .replace(/\b(efe|fe)\s*([1-8])\b/g, 'f$2')
-          .replace(/\b(ge|gê|je)\s*([1-8])\b/g, 'g$2')
-          .replace(/\b(aga|ha)\s*([1-8])\b/g, 'h$2')
-          .replace(/\b([a-h])\s+([1-8])\b/g, '$1$2');
-
-        // 3. Identificar tipo de peça mencionado
-        const pieceMap = [
-          { keys: ['peao', 'peoes', 'soldado', 'sentinela'], type: 'p', label: 'Peão' },
-          { keys: ['cavalo', 'cavaleiro', 'corcel'], type: 'n', label: 'Cavalo' },
-          { keys: ['bispo', 'clero', 'inquisidor'], type: 'b', label: 'Bispo' },
-          { keys: ['torre', 'castelo', 'fortaleza'], type: 'r', label: 'Torre' },
-          { keys: ['rainha', 'dama', 'soberana'], type: 'q', label: 'Rainha' },
-          { keys: ['rei', 'monarca'], type: 'k', label: 'Rei' }
-        ];
-
-        let requestedType = null;
-        let requestedLabel = 'Peça';
-        for (const entry of pieceMap) {
-          if (entry.keys.some(k => normalized.includes(k))) {
-            requestedType = entry.type;
-            requestedLabel = entry.label;
-            break;
-          }
-        }
-
-        // Identificar promoção falada (ex: "Peão para A8 promove para Rainha")
-        let spokenPromotion = null;
-        if (normalized.includes('promov') || normalized.includes('vira')) {
-          if (normalized.includes('cavalo')) spokenPromotion = 'n';
-          else if (normalized.includes('torre')) spokenPromotion = 'r';
-          else if (normalized.includes('bispo')) spokenPromotion = 'b';
-          else spokenPromotion = 'q';
-        }
-
-        // 4. Extrair casas algébricas (ex: ["g1", "f3"] ou ["e4"])
-        const squareMatches = normalized.match(/[a-h][1-8]/g) || [];
-
-        if (squareMatches.length === 0) {
-          return {
-            status: 'error',
-            message: 'Não identifiquei a casa de destino (ex: "Peão para E4" ou "Cavalo para F3").'
-          };
-        }
-
-        if (squareMatches.length >= 2) {
-          const fromSq = squareMatches[0];
-          const toSq = squareMatches[squareMatches.length - 1];
-          const exactMatches = legalMoves.filter(m =>
-            m.from === fromSq &&
-            m.to === toSq &&
-            (!requestedType || m.piece === requestedType)
-          );
-
-          if (exactMatches.length > 0) {
-            const chosen = exactMatches.find(m => !spokenPromotion || m.promotion === spokenPromotion) || exactMatches[0];
-            return { status: 'ok', move: chosen };
-          }
-          return {
-            status: 'error',
-            message: `Movimento ilegal de ${fromSq.toUpperCase()} para ${toSq.toUpperCase()}.`
-          };
-        }
-
-        const targetSq = squareMatches[0];
-        let candidates = legalMoves.filter(m => m.to === targetSq);
-
-        if (requestedType) {
-          candidates = candidates.filter(m => m.piece === requestedType);
-        }
-
-        if (spokenPromotion) {
-          const promoFiltered = candidates.filter(m => m.promotion === spokenPromotion);
-          if (promoFiltered.length > 0) candidates = promoFiltered;
-        } else if (candidates.length > 1 && candidates.every(m => m.from === candidates[0].from && m.promotion)) {
-          // Mesmo peão promovendo na casa alvo sem peça de promoção especificada -> padrão Rainha
-          const queenPromo = candidates.find(m => m.promotion === 'q');
-          if (queenPromo) candidates = [queenPromo];
-        }
-
-        const disambigMatch = normalized.match(/\bde\s+([a-h1-8])\b/);
-        if (disambigMatch && candidates.length > 1) {
-          const hint = disambigMatch[1];
-          const filtered = candidates.filter(m => m.from.includes(hint));
-          if (filtered.length > 0) candidates = filtered;
-        }
-
-        if (candidates.length === 1) {
-          return { status: 'ok', move: candidates[0] };
-        }
-
-        if (candidates.length > 1) {
-          return {
-            status: 'ambiguous',
-            candidates,
-            targetSquare: targetSq.toUpperCase(),
-            message: `Mais de uma peça (${requestedLabel}) pode avançar para ${targetSq.toUpperCase()}. Escolha a origem:`
-          };
-        }
-
-        return {
-          status: 'error',
-          message: `Nenhuma jogada legal leva ${requestedType ? requestedLabel : 'uma peça'} até ${targetSq.toUpperCase()}.`
-        };
-      }
-    }
-
-    /**
-     * ============================================================================
-     * MÓDULO 4: CONSTRUTOR DE ESCULTURAS 3D MEDIEVAIS (PEÇAS E TEXTURAS PBR)
-     * Esculpe cada arquétipo usando LatheGeometry (perfis torneados clássicos),
-     * ExtrudeGeometry (cabeça equina anatômica para o Cavalo) e ornamentos em
-     * bronze envelhecido, além de mapas de textura procedurais para Marfim e Obsidiana.
-     * ============================================================================
-     */
-    class ArcanePieceSculptor {
-      constructor() {
-        this.textures = this.generateProceduralStoneTextures();
-
-        // Materiais PBR Refinados: Marfim Envelhecido, Obsidiana Esculpida e Bronze Antigo
-        this.materials = {
-          w: new THREE.MeshStandardMaterial({
-            color: 0xe6dbc8,
-            map: this.textures.ivoryColor,
-            bumpMap: this.textures.stoneBump,
-            bumpScale: 0.012,
-            roughnessMap: this.textures.stoneBump,
-            roughness: 0.42,
-            metalness: 0.08
-          }),
-          b: new THREE.MeshStandardMaterial({
-            color: 0x1e222b,
-            map: this.textures.obsidianColor,
-            bumpMap: this.textures.stoneBump,
-            bumpScale: 0.015,
-            roughnessMap: this.textures.stoneBump,
-            roughness: 0.34,
-            metalness: 0.28
-          }),
-          bronze: new THREE.MeshStandardMaterial({
-            color: 0xc89d5c,
-            bumpMap: this.textures.stoneBump,
-            bumpScale: 0.008,
-            roughness: 0.32,
-            metalness: 0.84
-          }),
-          darkBronze: new THREE.MeshStandardMaterial({
-            color: 0x7c5c2b,
-            roughness: 0.44,
-            metalness: 0.76
-          })
-        };
-
-        // Cache de Geometrias Torneadas e Esculpidas para máximo desempenho
-        this.geometryCache = {};
-        this.initSharedGeometries();
-      }
-
-      // Gera texturas procedurais em Canvas para veios de mármore, ardósia e micro-relevo de pedra
-      generateProceduralStoneTextures() {
-        const createCanvasTex = (drawFn) => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 256;
-          canvas.height = 256;
-          const ctx = canvas.getContext('2d');
-          drawFn(ctx, 256, 256);
-          const tex = new THREE.CanvasTexture(canvas);
-          tex.wrapS = THREE.RepeatWrapping;
-          tex.wrapT = THREE.RepeatWrapping;
-          return tex;
-        };
-
-        // 1. Mapa de Relevo/Rugosidade de Pedra Esculpida
-        const stoneBump = createCanvasTex((ctx, w, h) => {
-          ctx.fillStyle = '#808080';
-          ctx.fillRect(0, 0, w, h);
-          for (let i = 0; i < 4200; i++) {
-            const x = Math.random() * w;
-            const y = Math.random() * h;
-            const v = 100 + Math.floor(Math.random() * 55);
-            ctx.fillStyle = `rgb(${v},${v},${v})`;
-            ctx.fillRect(x, y, 2, 2);
-          }
-          // Veios sutis
-          ctx.strokeStyle = 'rgba(60, 60, 60, 0.22)';
-          ctx.lineWidth = 1.2;
-          for (let v = 0; v < 18; v++) {
-            ctx.beginPath();
-            let cx = Math.random() * w;
-            let cy = 0;
-            ctx.moveTo(cx, cy);
-            while (cy < h) {
-              cy += 16;
-              cx += (Math.random() - 0.5) * 22;
-              ctx.lineTo(cx, cy);
-            }
-            ctx.stroke();
-          }
-        });
-
-        // 2. Nuances de Marfim Envelhecido / Mármore Quente
-        const ivoryColor = createCanvasTex((ctx, w, h) => {
-          const grad = ctx.createLinearGradient(0, 0, w, h);
-          grad.addColorStop(0, '#ebe1cf');
-          grad.addColorStop(0.5, '#dfd3be');
-          grad.addColorStop(1, '#e7dcc8');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, w, h);
-
-          ctx.strokeStyle = 'rgba(155, 132, 98, 0.16)';
-          ctx.lineWidth = 1.5;
-          for (let i = 0; i < 14; i++) {
-            ctx.beginPath();
-            let x = Math.random() * w;
-            let y = 0;
-            ctx.moveTo(x, y);
-            while (y < h) {
-              y += 20;
-              x += (Math.random() - 0.5) * 26;
-              ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-          }
-        });
-
-        // 3. Nuances de Obsidiana / Grafite Mineral
-        const obsidianColor = createCanvasTex((ctx, w, h) => {
-          const grad = ctx.createLinearGradient(0, 0, w, h);
-          grad.addColorStop(0, '#222631');
-          grad.addColorStop(0.5, '#181b24');
-          grad.addColorStop(1, '#242936');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, w, h);
-
-          ctx.strokeStyle = 'rgba(180, 195, 220, 0.08)';
-          ctx.lineWidth = 1.2;
-          for (let i = 0; i < 14; i++) {
-            ctx.beginPath();
-            let x = Math.random() * w;
-            let y = 0;
-            ctx.moveTo(x, y);
-            while (y < h) {
-              y += 20;
-              x += (Math.random() - 0.5) * 24;
-              ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-          }
-        });
-
-        return { stoneBump, ivoryColor, obsidianColor };
-      }
-
-      initSharedGeometries() {
-        const makeLathe = (pts, segs = 24) => {
-          const vectors = pts.map(([r, y]) => new THREE.Vector2(r, y));
-          const geo = new THREE.LatheGeometry(vectors, segs);
-          geo.computeVertexNormals();
-          return geo;
-        };
-
-        // Base Monumental Torneada comum a toda a coleção
-        this.geometryCache.pedestal = makeLathe([
-          [0.0, 0.0],
-          [0.41, 0.0],
-          [0.41, 0.05],
-          [0.37, 0.09],
-          [0.38, 0.13],
-          [0.33, 0.18],
-          [0.29, 0.24],
-          [0.0, 0.24]
-        ], 24);
-
-        // Anel ornamental de bronze da base
-        this.geometryCache.baseRing = new THREE.TorusGeometry(0.355, 0.02, 10, 28);
-
-        // Perfil Torneado do PEÃO (Guardião com colarinho e elmo ogival)
-        this.geometryCache.pawnBody = makeLathe([
-          [0.28, 0.22],
-          [0.23, 0.34],
-          [0.16, 0.52],
-          [0.14, 0.64],
-          [0.20, 0.68],
-          [0.15, 0.72],
-          [0.20, 0.84],
-          [0.18, 0.96],
-          [0.09, 1.05],
-          [0.0, 1.09]
-        ], 22);
-
-        // Perfil Torneado da TORRE (Bastião Medieval Robusto)
-        this.geometryCache.rookBody = makeLathe([
-          [0.30, 0.22],
-          [0.27, 0.36],
-          [0.23, 0.68],
-          [0.22, 0.84],
-          [0.29, 0.92],
-          [0.30, 1.06],
-          [0.21, 1.06],
-          [0.21, 0.98],
-          [0.0, 0.98]
-        ], 16);
-
-        // Perfil Torneado do BISPO (Vestes Litúrgicas e Mitra Gótica)
-        this.geometryCache.bishopBody = makeLathe([
-          [0.29, 0.22],
-          [0.24, 0.38],
-          [0.16, 0.66],
-          [0.14, 0.84],
-          [0.20, 0.89],
-          [0.16, 0.93],
-          [0.22, 1.08],
-          [0.19, 1.24],
-          [0.08, 1.36],
-          [0.0, 1.40]
-        ], 24);
-
-        // Perfil Torneado da RAINHA (Silhueta Soberana Elegante com Cálice)
-        this.geometryCache.queenBody = makeLathe([
-          [0.31, 0.22],
-          [0.26, 0.38],
-          [0.18, 0.68],
-          [0.15, 0.92],
-          [0.22, 0.98],
-          [0.17, 1.03],
-          [0.23, 1.20],
-          [0.26, 1.34],
-          [0.18, 1.32],
-          [0.14, 1.40],
-          [0.0, 1.43]
-        ], 26);
-
-        // Perfil Torneado do REI (Monarca Monumental de Ombros Largos)
-        this.geometryCache.kingBody = makeLathe([
-          [0.33, 0.22],
-          [0.28, 0.40],
-          [0.20, 0.74],
-          [0.18, 0.98],
-          [0.25, 1.05],
-          [0.20, 1.11],
-          [0.25, 1.28],
-          [0.28, 1.42],
-          [0.19, 1.42],
-          [0.16, 1.50],
-          [0.0, 1.52]
-        ], 24);
-
-        // Escultura Anatômica do CAVALO (Extrusão com Chanfro do Perfil Equino)
-        const horseShape = new THREE.Shape();
-        horseShape.moveTo(-0.18, 0.22);
-        horseShape.lineTo(0.18, 0.22);
-        horseShape.bezierCurveTo(0.24, 0.38, 0.21, 0.56, 0.14, 0.72); // Peito forte
-        horseShape.lineTo(0.27, 0.67); // Queixo inferior
-        horseShape.lineTo(0.35, 0.73); // Focinho
-        horseShape.lineTo(0.33, 0.83); // Chanfro nasal
-        horseShape.lineTo(0.17, 0.96); // Fronte
-        horseShape.lineTo(0.13, 1.14); // Orelha alerta
-        horseShape.lineTo(0.03, 1.03); // Nuca
-        horseShape.bezierCurveTo(-0.18, 0.96, -0.26, 0.68, -0.21, 0.40); // Dorso arqueado
-        horseShape.closePath();
-
-        const extrudeSettings = {
-          steps: 1,
-          depth: 0.18,
-          bevelEnabled: true,
-          bevelThickness: 0.055,
-          bevelSize: 0.045,
-          bevelSegments: 4
-        };
-        const knightGeo = new THREE.ExtrudeGeometry(horseShape, extrudeSettings);
-        knightGeo.center();
-        knightGeo.computeVertexNormals();
-        this.geometryCache.knightHead = knightGeo;
-      }
-
-      createPieceMesh(type, color) {
-        const root = new THREE.Group();
-        const mainMat = this.materials[color];
-        const bronzeMat = this.materials.bronze;
-
-        // 1. Base / Pedestal Torneado
-        const pedestal = new THREE.Mesh(this.geometryCache.pedestal, mainMat);
-        pedestal.castShadow = true;
-        pedestal.receiveShadow = true;
-        root.add(pedestal);
-
-        // Anel de Bronze na Base
-        const baseRing = new THREE.Mesh(this.geometryCache.baseRing, bronzeMat);
-        baseRing.rotation.x = Math.PI / 2;
-        baseRing.position.y = 0.135;
-        root.add(baseRing);
-
-        // 2. Escultura Específica de Cada Arquétipo
-        if (type === 'p') {
-          // PEÃO: Guardião Medieval com colar de bronze e escudo frontal esculpido
-          const body = new THREE.Mesh(this.geometryCache.pawnBody, mainMat);
-          body.castShadow = true;
-          body.receiveShadow = true;
-          root.add(body);
-
-          const collar = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.018, 8, 22), bronzeMat);
-          collar.rotation.x = Math.PI / 2;
-          collar.position.y = 0.68;
-          root.add(collar);
-
-          // Escudo Tático Frontal em Bronze
-          const dirZ = color === 'w' ? -1 : 1;
-          const shield = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.04), bronzeMat);
-          shield.position.set(0, 0.50, dirZ * 0.17);
-          shield.rotation.x = dirZ * -0.12;
-          shield.castShadow = true;
-          root.add(shield);
-
-        } else if (type === 'r') {
-          // TORRE: Fortaleza Monolítica com 6 Ameias, Contrafortes e Anel de Bronze
-          const body = new THREE.Mesh(this.geometryCache.rookBody, mainMat);
-          body.castShadow = true;
-          body.receiveShadow = true;
-          root.add(body);
-
-          const towerRing = new THREE.Mesh(new THREE.TorusGeometry(0.245, 0.02, 8, 24), bronzeMat);
-          towerRing.rotation.x = Math.PI / 2;
-          towerRing.position.y = 0.88;
-          root.add(towerRing);
-
-          // 4 Contrafortes verticais + 6 Ameias superiores
-          for (let i = 0; i < 4; i++) {
-            const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
-            const buttress = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.56, 0.08), mainMat);
-            buttress.position.set(Math.cos(ang) * 0.22, 0.54, Math.sin(ang) * 0.22);
-            buttress.rotation.y = -ang;
-            buttress.castShadow = true;
-            root.add(buttress);
-          }
-
-          for (let i = 0; i < 6; i++) {
-            const angle = (i / 6) * Math.PI * 2;
-            const crenel = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.15, 0.09), mainMat);
-            crenel.position.set(Math.cos(angle) * 0.245, 1.12, Math.sin(angle) * 0.245);
-            crenel.rotation.y = -angle;
-            crenel.castShadow = true;
-            root.add(crenel);
-          }
-
-        } else if (type === 'n') {
-          // CAVALO: Escultura Equina Anatômica com Crina em Placas de Bronze e Peitoral
-          const knightGroup = new THREE.Group();
-
-          const horseMesh = new THREE.Mesh(this.geometryCache.knightHead, mainMat);
-          horseMesh.position.y = 0.68;
-          horseMesh.castShadow = true;
-          horseMesh.receiveShadow = true;
-          knightGroup.add(horseMesh);
-
-          // Crina Esculpida em Gomos de Bronze ao longo do dorso
-          const manePositions = [
-            [-0.14, 0.98, 0.25],
-            [-0.19, 0.84, 0.10],
-            [-0.21, 0.69, -0.05],
-            [-0.19, 0.54, -0.15]
-          ];
-          manePositions.forEach(([mx, my, rotZ]) => {
-            const plate = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.13, 0.07), bronzeMat);
-            plate.position.set(mx, my, 0);
-            plate.rotation.z = rotZ;
-            plate.castShadow = true;
-            knightGroup.add(plate);
-          });
-
-          // Olhos em Bronze Brilhante
-          const eyeGeo = new THREE.SphereGeometry(0.024, 8, 8);
-          const eyeL = new THREE.Mesh(eyeGeo, bronzeMat);
-          eyeL.position.set(0.15, 0.92, 0.11);
-          const eyeR = new THREE.Mesh(eyeGeo, bronzeMat);
-          eyeR.position.set(0.15, 0.92, -0.11);
-          knightGroup.add(eyeL, eyeR);
-
-          // Orientar o Cavalo para olhar na direção do exército adversário
-          // No shape 2D original, o focinho aponta para +X.
-          // Rotacionando +90° (PI/2) em Y, +X passa a apontar para -Z (frente das Brancas)
-          knightGroup.rotation.y = color === 'w' ? Math.PI / 2 : -Math.PI / 2;
-          root.add(knightGroup);
-
-        } else if (type === 'b') {
-          // BISPO: Mitra Cerimonial Entalhada, Estola Vertical e Orbe Sagrado
-          const body = new THREE.Mesh(this.geometryCache.bishopBody, mainMat);
-          body.castShadow = true;
-          body.receiveShadow = true;
-          root.add(body);
-
-          const collar = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.022, 10, 24), bronzeMat);
-          collar.rotation.x = Math.PI / 2;
-          collar.position.y = 0.89;
-          root.add(collar);
-
-          // Faixa / Estola Cerimonial em Bronze
-          const dirZ = color === 'w' ? -1 : 1;
-          const stole = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.48, 0.03), bronzeMat);
-          stole.position.set(0, 0.58, dirZ * 0.165);
-          stole.rotation.x = dirZ * -0.12;
-          root.add(stole);
-
-          // Orbe e Pequena Cruz no Topo da Mitra
-          const orb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 14), bronzeMat);
-          orb.position.y = 1.43;
-          root.add(orb);
-
-        } else if (type === 'q') {
-          // RAINHA: Escultura Soberana com Colar Imperial e Diadema de 8 Pontas e Pérolas
-          const body = new THREE.Mesh(this.geometryCache.queenBody, mainMat);
-          body.castShadow = true;
-          body.receiveShadow = true;
-          root.add(body);
-
-          const waistRing = new THREE.Mesh(new THREE.TorusGeometry(0.195, 0.02, 10, 24), bronzeMat);
-          waistRing.rotation.x = Math.PI / 2;
-          waistRing.position.y = 0.98;
-          root.add(waistRing);
-
-          const crownRing = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.024, 10, 26), bronzeMat);
-          crownRing.rotation.x = Math.PI / 2;
-          crownRing.position.y = 1.34;
-          root.add(crownRing);
-
-          // 8 Pontas de Coroa com Esferas no Ápice
-          for (let i = 0; i < 8; i++) {
-            const a = (i / 8) * Math.PI * 2;
-            const r = 0.215;
-            const spike = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.15, 8), bronzeMat);
-            spike.position.set(Math.cos(a) * r, 1.42, Math.sin(a) * r);
-            root.add(spike);
-
-            const pearl = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), bronzeMat);
-            pearl.position.set(Math.cos(a) * r, 1.50, Math.sin(a) * r);
-            root.add(pearl);
-          }
-
-        } else if (type === 'k') {
-          // REI: Figura Monumental com Manto Canelado, Coroa Imperial e Cruz Real no Ápice
-          const body = new THREE.Mesh(this.geometryCache.kingBody, mainMat);
-          body.castShadow = true;
-          body.receiveShadow = true;
-          root.add(body);
-
-          const collarRing = new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.025, 10, 26), bronzeMat);
-          collarRing.rotation.x = Math.PI / 2;
-          collarRing.position.y = 1.05;
-          root.add(collarRing);
-
-          const crownBand = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.028, 10, 26), bronzeMat);
-          crownBand.rotation.x = Math.PI / 2;
-          crownBand.position.y = 1.42;
-          root.add(crownBand);
-
-          // Florões da Coroa Real
-          for (let i = 0; i < 8; i++) {
-            const a = (i / 8) * Math.PI * 2;
-            const jewel = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.11, 0.04), bronzeMat);
-            jewel.position.set(Math.cos(a) * 0.245, 1.48, Math.sin(a) * 0.245);
-            jewel.rotation.y = -a;
-            root.add(jewel);
-          }
-
-          // Orbe Imperial + Cruz Patonce Monumental no Topo
-          const orb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), bronzeMat);
-          orb.position.y = 1.56;
-          root.add(orb);
-
-          const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.25, 0.055), bronzeMat);
-          crossV.position.y = 1.70;
-          crossV.castShadow = true;
-          root.add(crossV);
-
-          const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.055, 0.055), bronzeMat);
-          crossH.position.y = 1.72;
-          crossH.castShadow = true;
-          root.add(crossH);
-        }
-
-        return root;
-      }
-    }
-
-    /**
-     * ============================================================================
-     * MÓDULO 5: APLICAÇÃO PRINCIPAL (ORQUESTRADOR 3D, FÍSICA, VOZ E REGRAS)
-     * ============================================================================
-     */
-    class WizardChessApp {
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { Chess } from 'chess.js';
+import { ArcaneAudioEngine } from '../services/ArcaneAudioEngine.js';
+import { GuardianAI } from '../ai/GuardianAI.js';
+import { PortugueseVoiceCommandParser } from '../chess/PortugueseVoiceCommandParser.js';
+import { ArcanePieceSculptor } from '../scene/ArcanePieceSculptor.js';
+
+class WizardChessApp {
       constructor() {
         this.chess = new Chess();
         this.audio = new ArcaneAudioEngine();
@@ -1882,7 +118,7 @@
         this.renderer.toneMappingExposure = 1.16;
         this.container.appendChild(this.renderer.domElement);
 
-        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.06;
         this.controls.maxPolarAngle = Math.PI / 2 - 0.04;
@@ -1939,6 +175,7 @@
           this.camera.aspect = window.innerWidth / window.innerHeight;
           this.camera.updateProjectionMatrix();
           this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           this.syncRightPanelVisibility();
         });
       }
@@ -2554,6 +791,11 @@
           ((piece.color === 'w' && to[1] === '8') || (piece.color === 'b' && to[1] === '1'));
 
         if (isPromotion && !explicitPromotion) {
+          const isLegalPromotion = this.chess.moves({ verbose: true }).some(m => m.from === from && m.to === to);
+          if (!isLegalPromotion) {
+            this.triggerIllegalMoveFeedback(to);
+            return;
+          }
           this.pendingPromotion = { from, to };
           this.toggleModal('promotion-modal', true);
           return;
@@ -2570,6 +812,15 @@
           return;
         }
 
+        // O relógio troca no instante em que o motor aceita o lance. Assim a
+        // animação cinematográfica não concede tempo gratuito a cada jogada.
+        if (this.clockControl !== 'off' && !this.clockExpired) {
+          this.clockRemaining[moveResult.color] += this.clockIncrement;
+          this.clockSide = this.chess.turn();
+          this.updateClockHUD();
+        }
+        if (this.chess.game_over()) this.gameConcluded = true;
+
         this.redoStack = [];
         this.lastMoveSquares = { from: moveResult.from, to: moveResult.to };
         this.clearSelection();
@@ -2583,6 +834,12 @@
         const { from, to } = this.pendingPromotion;
         this.pendingPromotion = null;
         this.initiateMove(from, to, pieceType);
+      }
+
+      cancelPromotion() {
+        this.toggleModal('promotion-modal', false);
+        this.pendingPromotion = null;
+        this.clearSelection();
       }
 
       /**
@@ -2767,9 +1024,6 @@
 
       onMoveAnimationComplete(attacker, moveResult, token) {
         if (token !== this.sessionToken) return;
-        if (this.clockControl !== 'off' && !this.clockExpired) this.clockRemaining[moveResult.color] += this.clockIncrement;
-        this.clockSide = this.chess.turn();
-        this.updateClockHUD();
 
         // Se houve promoção de peão, esculpir a nova peça mantendo o ID persistente
         if (moveResult.promotion) {
@@ -3226,34 +1480,57 @@
           checkBadge.classList.add('hidden');
         }
 
-        // Histórico Algébrico
-        const history = this.chess.history({ verbose: true });
+        // Histórico Algébrico Completo (lances jogados + lances futuros disponíveis para refazer)
+        const playedHistory = this.chess.history({ verbose: true });
+        const futureHistory = (this.redoStack || []).slice().reverse();
+        const fullHistory = [...playedHistory, ...futureHistory];
+        const activePly = playedHistory.length;
+
         const historyEl = document.getElementById('move-history');
         const moveCounter = document.getElementById('move-counter');
-        moveCounter.textContent = `Lance ${Math.floor(history.length / 2) + 1}`;
+        moveCounter.textContent = `Lance ${Math.floor(fullHistory.length / 2) + 1}`;
 
-        if (history.length === 0) {
+        if (fullHistory.length === 0) {
           historyEl.innerHTML = `
             <div class="text-stone-500 italic font-sans text-[11px] py-4 text-center">
               As esculturas aguardam o primeiro comando...
             </div>`;
         } else {
-          let html = '';
-          for (let i = 0; i < history.length; i += 2) {
+          let html = `
+            <div class="flex items-center justify-between px-2 py-1 mb-1.5 rounded text-[11px] bg-stone-900/80 border border-amber-500/20">
+              <span class="text-stone-400 text-[10px] uppercase tracking-wider">Navegação:</span>
+              <div class="flex items-center gap-2">
+                <button type="button" data-action="jumpToPly(0)" class="text-xs ${activePly === 0 ? 'text-amber-300 font-bold underline' : 'text-stone-400 hover:text-white'} underline-offset-2" title="Ver posição inicial">⏮ Início</button>
+                <button type="button" data-action="jumpToPly(${fullHistory.length})" class="text-xs ${activePly === fullHistory.length ? 'text-amber-300 font-bold underline' : 'text-stone-400 hover:text-white'} underline-offset-2" title="Ir para o lance mais recente">Fim ⏭</button>
+              </div>
+            </div>`;
+
+          for (let i = 0; i < fullHistory.length; i += 2) {
             const moveNum = Math.floor(i / 2) + 1;
-            const wMove = history[i];
-            const bMove = history[i + 1];
+            const wMove = fullHistory[i];
+            const bMove = fullHistory[i + 1];
+            const wPly = i + 1;
+            const bPly = i + 2;
+
+            const wClass = activePly === wPly
+              ? 'text-amber-200 font-bold bg-amber-500/25 px-1.5 py-0.5 rounded border border-amber-500/40'
+              : (wPly <= activePly ? 'text-amber-100 hover:text-white' : 'text-stone-500 hover:text-stone-300');
+
+            const bClass = activePly === bPly
+              ? 'text-amber-200 font-bold bg-amber-500/25 px-1.5 py-0.5 rounded border border-amber-500/40'
+              : (bPly <= activePly ? 'text-stone-300 hover:text-white' : 'text-stone-500 hover:text-stone-300');
+
             html += `
-              <div class="flex items-center justify-between px-2 py-1 rounded ${
-                i + 2 >= history.length ? 'bg-amber-500/15 border border-amber-500/30' : 'hover:bg-white/5'
-              }">
+              <div class="flex items-center justify-between px-2 py-0.5 rounded hover:bg-white/5 text-[11px]">
                 <span class="text-stone-500 w-7">${moveNum}.</span>
-                <button type="button" onclick="app.jumpToPly(${i + 1})" class="text-amber-100 flex-1 text-left hover:text-white underline-offset-2 hover:underline" title="Ir para este lance">${wMove.san}</button>
-                <button type="button" onclick="app.jumpToPly(${bMove ? i + 2 : i + 1})" class="text-stone-300 flex-1 text-right hover:text-white underline-offset-2 hover:underline" title="Ir para este lance">${bMove ? bMove.san : ''}</button>
+                <button type="button" data-action="jumpToPly(${wPly})" class="${wClass} flex-1 text-left underline-offset-2 hover:underline truncate" title="Ir para lance ${wPly}">${wMove.san}</button>
+                <button type="button" data-action="jumpToPly(${bMove ? bPly : wPly})" class="${bClass} flex-1 text-right underline-offset-2 hover:underline truncate" title="${bMove ? 'Ir para lance ' + bPly : ''}">${bMove ? bMove.san : ''}</button>
               </div>`;
           }
           historyEl.innerHTML = html;
-          historyEl.scrollTop = historyEl.scrollHeight;
+          if (activePly === fullHistory.length) {
+            historyEl.scrollTop = historyEl.scrollHeight;
+          }
         }
 
         // Cemitério de Peças Capturadas + Cálculo Real de Vantagem Material
@@ -3262,7 +1539,7 @@
         const capturedByWhite = [];
         const capturedByBlack = [];
 
-        history.forEach(m => {
+        playedHistory.forEach(m => {
           if (m.captured) {
             if (m.color === 'w') capturedByWhite.push(icons[m.captured] || '♟');
             else capturedByBlack.push(icons[m.captured] || '♟');
@@ -3294,6 +1571,12 @@
       }
 
       showGameOverModal() {
+        this.gameConcluded = true;
+        this.sessionToken++;
+        this.aiThinking = false;
+        this.isAnimating = false;
+        const badge = document.getElementById('guardian-thinking');
+        if (badge) { badge.classList.add('hidden'); badge.classList.remove('inline-flex'); }
         const titleEl = document.getElementById('gameover-title');
         const subEl = document.getElementById('gameover-subtitle');
 
@@ -3416,6 +1699,7 @@
 
       startNewGame(mode = 'ai', color = 'w', difficulty = 2) {
         this.gameMode = mode === 'local' ? 'local' : 'ai';
+        this.sessionGameMode = this.gameMode;
         this.playerColor = color === 'b' ? 'b' : 'w';
         this.startingColor = this.playerColor;
         this.aiDifficulty = Math.max(1, Math.min(3, parseInt(difficulty, 10) || 2));
@@ -3452,6 +1736,7 @@
           return;
         }
         this.gameMode = mode;
+        this.sessionGameMode = mode;
         document.getElementById('select-mode').value = mode;
         document.getElementById('modal-select-mode').value = mode;
         const startMode = document.getElementById('start-mode');
@@ -3710,22 +1995,44 @@
       }
 
       jumpToPly(ply) {
-        const history = this.chess.history({verbose:true});
-        const target = Math.max(0, Math.min(history.length, Number(ply)||0));
-        if (!history.length) return;
+        const played = this.chess.history({ verbose: true });
+        const future = (this.redoStack || []).slice().reverse();
+        const allMoves = [...played, ...future];
+        if (!allMoves.length) return;
+
+        const target = Math.max(0, Math.min(allMoves.length, Number(ply) || 0));
         const replay = new Chess();
-        for (let i=0; i<target; i++) {
-          const m=history[i];
-          if (!replay.move({from:m.from,to:m.to,promotion:m.promotion||'q'})) break;
+        for (let i = 0; i < target; i++) {
+          const m = allMoves[i];
+          if (!replay.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' })) break;
         }
-        this.sessionToken++; this.aiThinking=false; this.isAnimating=false;
-        this.chess = replay; this.redoStack = history.slice(target).reverse();
-        this.gameMode = 'local'; this.gameConcluded = false;
-        document.getElementById('select-mode').value = 'local';
-        document.getElementById('modal-select-mode').value = 'local';
-        this.lastMoveSquares = target ? {from:history[target-1].from,to:history[target-1].to} : null;
-        this.clockSide=this.chess.turn(); this.syncPersistentPiecesFromScratch(); this.updateHUD(); this.persistCurrentGame();
-        document.getElementById('last-move-banner').textContent=`Histórico: visualizando após ${target} lance(s).`;
+
+        this.sessionToken++;
+        this.aiThinking = false;
+        this.isAnimating = false;
+        this.chess = replay;
+        this.redoStack = allMoves.slice(target).reverse();
+
+        if (!this.sessionGameMode) this.sessionGameMode = this.gameMode;
+        if (target === allMoves.length) {
+          this.gameMode = this.sessionGameMode;
+        } else {
+          this.gameMode = 'local';
+        }
+        ['select-mode', 'modal-select-mode'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = this.gameMode;
+        });
+
+        this.gameConcluded = false;
+        this.lastMoveSquares = target > 0 ? { from: allMoves[target - 1].from, to: allMoves[target - 1].to } : null;
+        this.clockSide = this.chess.turn();
+        this.syncPersistentPiecesFromScratch();
+        this.updateHUD();
+        this.persistCurrentGame();
+        document.getElementById('last-move-banner').textContent = target === 0
+          ? 'Histórico: visualizando posição inicial.'
+          : `Histórico: visualizando após ${target} lance(s).`;
       }
 
       async copyFEN() {
@@ -3846,20 +2153,4 @@
       }
     }
 
-    // Inicializar ícones e a Aplicação 3D quando a página carregar
-    let app;
-    window.addEventListener('DOMContentLoaded', () => {
-      if (window.lucide) window.lucide.createIcons();
-      app = new WizardChessApp();
-      window.addEventListener('keydown', (event) => {
-        if (!app || event.ctrlKey || event.metaKey || event.altKey) return;
-        const tag = event.target && event.target.tagName;
-        if (['INPUT','TEXTAREA','SELECT'].includes(tag) || !document.getElementById('start-screen').classList.contains('hidden')) return;
-        if (event.key.toLowerCase() === 'z') { event.preventDefault(); app.undoMove(); }
-        else if (event.key.toLowerCase() === 'y') { event.preventDefault(); app.redoMove(); }
-        else if (event.key === 'Escape') { app.toggleModal('settings-modal', false); app.toggleModal('help-modal', false); }
-      });
-    });
-  </script>
-</body>
-</html>
+export { WizardChessApp };
