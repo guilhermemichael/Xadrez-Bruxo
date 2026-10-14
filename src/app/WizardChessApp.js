@@ -5,6 +5,7 @@ import { ArcaneAudioEngine } from '../services/ArcaneAudioEngine.js';
 import { GuardianAI } from '../ai/GuardianAI.js';
 import { PortugueseVoiceCommandParser } from '../chess/PortugueseVoiceCommandParser.js';
 import { ArcanePieceSculptor } from '../scene/ArcanePieceSculptor.js';
+import { ArcaneChessboard } from '../scene/ArcaneChessboard.js';
 
 class WizardChessApp {
       constructor() {
@@ -107,7 +108,7 @@ class WizardChessApp {
           0.1,
           110
         );
-        this.camera.position.set(0, 7.0, 8.2);
+        this.camera.position.set(0, 6.8, 8.0);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -115,15 +116,15 @@ class WizardChessApp {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.16;
+        this.renderer.toneMappingExposure = 1.18;
         this.container.appendChild(this.renderer.domElement);
 
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.06;
         this.controls.maxPolarAngle = Math.PI / 2 - 0.04;
-        this.controls.minDistance = 4.2;
-        this.controls.maxDistance = 17.5;
+        this.controls.minDistance = 3.8;
+        this.controls.maxDistance = 18.0;
         this.controls.target.set(0, 0.25, 0);
 
         // Cancelar transição automática se o jogador interagir manualmente com a câmera
@@ -132,40 +133,41 @@ class WizardChessApp {
         });
 
         // 1. Luz Hemisférica Atmosférica (Céu Noturno Azulado vs Reflexo Quente do Altar)
-        const hemiLight = new THREE.HemisphereLight(0xa6c2ed, 0x2c2218, 0.62);
+        const hemiLight = new THREE.HemisphereLight(0x9cbde8, 0x241d16, 0.62);
         this.scene.add(hemiLight);
 
-        // 2. Luz Direcional Principal (Luar Gótico Frio com Sombras Nítidas)
-        this.moonLight = new THREE.DirectionalLight(0xcbe0ff, 1.22);
-        this.moonLight.position.set(-6.5, 13.5, 6.5);
+        // 2. Luz Direcional Principal (Luar Gótico Frio com Sombras Nítidas e Suaves)
+        this.moonLight = new THREE.DirectionalLight(0xd2e3ff, 1.25);
+        this.moonLight.position.set(-6.5, 14.0, 6.8);
         this.moonLight.castShadow = true;
         this.moonLight.shadow.mapSize.width = 2048;
         this.moonLight.shadow.mapSize.height = 2048;
         this.moonLight.shadow.camera.near = 2;
-        this.moonLight.shadow.camera.far = 28;
-        const d = 5.8;
+        this.moonLight.shadow.camera.far = 30;
+        const d = 6.2;
         this.moonLight.shadow.camera.left = -d;
         this.moonLight.shadow.camera.right = d;
         this.moonLight.shadow.camera.top = d;
         this.moonLight.shadow.camera.bottom = -d;
-        this.moonLight.shadow.bias = -0.0005;
+        this.moonLight.shadow.bias = -0.0003;
+        this.moonLight.shadow.normalBias = 0.02;
         this.scene.add(this.moonLight);
 
-        // 3. Rim Light Sutil (Recorte Traseiro para destacar peças de Obsidiana do fundo escuro)
-        const rimLight = new THREE.DirectionalLight(0x7aa2f7, 0.45);
-        rimLight.position.set(5, 6, -9);
+        // 3. Rim Light Traseiro (Destaque e Contorno de Silhueta para Peças de Obsidiana)
+        const rimLight = new THREE.DirectionalLight(0x82aaff, 0.65);
+        rimLight.position.set(5.5, 7.5, -9.5);
         this.scene.add(rimLight);
 
         // 4. Quatro Tochas / Braseiros Quentes nos cantos do altar
         this.torchLights = [];
         this.brazierCoords = [
-          [-5.25, 1.25, -5.25],
-          [5.25, 1.25, -5.25],
-          [-5.25, 1.25, 5.25],
-          [5.25, 1.25, 5.25]
+          [-5.4, 1.35, -5.4],
+          [5.4, 1.35, -5.4],
+          [-5.4, 1.35, 5.4],
+          [5.4, 1.35, 5.4]
         ];
         this.brazierCoords.forEach(([tx, ty, tz]) => {
-          const light = new THREE.PointLight(0xff9238, 0.95, 14.5, 1.75);
+          const light = new THREE.PointLight(0xff9436, 1.15, 15.0, 1.8);
           light.position.set(tx, ty + 0.55, tz);
           this.scene.add(light);
           this.torchLights.push(light);
@@ -216,13 +218,13 @@ class WizardChessApp {
           metalness: 0.25
         });
 
-        const step1 = new THREE.Mesh(new THREE.BoxGeometry(11.6, 0.45, 11.6), altarMat);
-        step1.position.y = -0.72;
+        const step1 = new THREE.Mesh(new THREE.BoxGeometry(12.4, 0.30, 12.4), altarMat);
+        step1.position.y = -0.74;
         step1.receiveShadow = true;
         hallGroup.add(step1);
 
-        const step2 = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.45, 10.2), altarMat);
-        step2.position.y = -0.36;
+        const step2 = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.28, 11.2), altarMat);
+        step2.position.y = -0.48;
         step2.receiveShadow = true;
         hallGroup.add(step2);
 
@@ -317,152 +319,30 @@ class WizardChessApp {
         );
       }
 
-      // Tabuleiro Esculpido em Pedra e Bronze com Casas Chanfradas e Coordenadas
+      // Tabuleiro Monumental Esculpido em Pedra, Bronze e Obsidiana (Módulo ArcaneChessboard)
       buildChessboard() {
-        this.boardGroup = new THREE.Group();
-        this.squareMeshes = new Map();
+        this.arcaneChessboard = new ArcaneChessboard(this.sculptor);
+        const {
+          boardGroup,
+          squareMeshes,
+          highlightsGroup,
+          statusMarkersGroup,
+          lightSquareMat,
+          darkSquareMat
+        } = this.arcaneChessboard.build(this.squareToWorld.bind(this));
 
-        const stoneBump = this.sculptor.textures.stoneBump;
-
-        // Moldura Externa de Obsidiana Esculpida
-        const outerFrameMat = new THREE.MeshStandardMaterial({
-          color: 0x161922,
-          bumpMap: stoneBump,
-          bumpScale: 0.015,
-          roughness: 0.46,
-          metalness: 0.36
-        });
-        const outerFrame = new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.30, 9.4), outerFrameMat);
-        outerFrame.position.y = -0.16;
-        outerFrame.receiveShadow = true;
-        this.boardGroup.add(outerFrame);
-
-        // Friso Interno de Bronze Antigo
-        const innerTrim = new THREE.Mesh(
-          new THREE.BoxGeometry(8.32, 0.32, 8.32),
-          this.sculptor.materials.bronze
-        );
-        innerTrim.position.y = -0.155;
-        innerTrim.receiveShadow = true;
-        this.boardGroup.add(innerTrim);
-
-        // 4 Cantoneiras de Bronze Ornamentais nos Vértices do Tabuleiro
-        const cornerCoords = [
-          [-4.45, -4.45],
-          [4.45, -4.45],
-          [-4.45, 4.45],
-          [4.45, 4.45]
-        ];
-        cornerCoords.forEach(([cx, cz]) => {
-          const boss = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.24, 0.28, 0.34, 8),
-            this.sculptor.materials.bronze
-          );
-          boss.position.set(cx, -0.14, cz);
-          this.boardGroup.add(boss);
-        });
-
-        // Materiais PBR para Casas Claras (Mármore Travertino) e Escuras (Ardósia Obsidiana)
-        this.lightSquareMat = new THREE.MeshStandardMaterial({
-          color: 0xe8d3ae,
-          map: this.sculptor.textures.ivoryColor,
-          bumpMap: stoneBump,
-          bumpScale: 0.008,
-          roughness: 0.58,
-          metalness: 0.035
-        });
-
-        this.darkSquareMat = new THREE.MeshStandardMaterial({
-          color: 0x141a25,
-          map: this.sculptor.textures.obsidianColor,
-          bumpMap: stoneBump,
-          bumpScale: 0.01,
-          roughness: 0.48,
-          metalness: 0.14
-        });
-
-        // Casas em blocos de pedra individuais: relevo e juntas visíveis entre as 64 casas.
-        const squareGeo = new THREE.BoxGeometry(0.955, 0.18, 0.955);
-        const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-
-        for (let r = 0; r < 8; r++) {
-          for (let f = 0; f < 8; f++) {
-            const sqName = `${files[f]}${r + 1}`;
-            const isLight = (f + r) % 2 !== 0;
-            const mesh = new THREE.Mesh(
-              squareGeo,
-              isLight ? this.lightSquareMat : this.darkSquareMat
-            );
-
-            const pos = this.squareToWorld(sqName);
-            mesh.position.set(pos.x, -0.01, pos.z);
-            mesh.receiveShadow = true;
-            mesh.userData = { square: sqName, isLight };
-
-            this.boardGroup.add(mesh);
-            this.squareMeshes.set(sqName, mesh);
-          }
-        }
-
-        // Coordenadas Algébricas (A-H e 1-8) nos 4 lados da moldura
-        this.addBoardCoordinates();
-
-        // Grupos dedicados para Destaques Táticos (Seleção, Último Lance e Rei em Xeque)
-        this.highlightsGroup = new THREE.Group();
-        this.boardGroup.add(this.highlightsGroup);
-
-        this.statusMarkersGroup = new THREE.Group();
-        this.boardGroup.add(this.statusMarkersGroup);
+        this.boardGroup = boardGroup;
+        this.squareMeshes = squareMeshes;
+        this.highlightsGroup = highlightsGroup;
+        this.statusMarkersGroup = statusMarkersGroup;
+        this.lightSquareMat = lightSquareMat;
+        this.darkSquareMat = darkSquareMat;
 
         this.scene.add(this.boardGroup);
       }
 
       addBoardCoordinates() {
-        const makeLabelTexture = (char) => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 64;
-          canvas.height = 64;
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, 64, 64);
-          ctx.font = 'bold 36px Cinzel, serif';
-          ctx.fillStyle = '#d8b274';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(char, 32, 34);
-          return new THREE.CanvasTexture(canvas);
-        };
-
-        const files = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-        for (let i = 0; i < 8; i++) {
-          const texF = makeLabelTexture(files[i]);
-          const matF = new THREE.MeshBasicMaterial({ map: texF, transparent: true });
-
-          // Sul (Brancas) e Norte (Pretas)
-          const planeFSouth = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.38), matF);
-          planeFSouth.rotation.x = -Math.PI / 2;
-          planeFSouth.position.set(i - 3.5, 0.005, 4.38);
-          this.boardGroup.add(planeFSouth);
-
-          const planeFNorth = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.38), matF);
-          planeFNorth.rotation.x = -Math.PI / 2;
-          planeFNorth.rotation.z = Math.PI;
-          planeFNorth.position.set(i - 3.5, 0.005, -4.38);
-          this.boardGroup.add(planeFNorth);
-
-          const texR = makeLabelTexture(String(i + 1));
-          const matR = new THREE.MeshBasicMaterial({ map: texR, transparent: true });
-
-          // Oeste e Leste
-          const planeRWest = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.38), matR);
-          planeRWest.rotation.x = -Math.PI / 2;
-          planeRWest.position.set(-4.38, 0.005, 3.5 - i);
-          this.boardGroup.add(planeRWest);
-
-          const planeREast = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.38), matR);
-          planeREast.rotation.x = -Math.PI / 2;
-          planeREast.position.set(4.38, 0.005, 3.5 - i);
-          this.boardGroup.add(planeREast);
-        }
+        // Coordenadas integradas e gravadas diretamente na moldura pelo ArcaneChessboard
       }
 
       /**
@@ -474,9 +354,10 @@ class WizardChessApp {
         if (!obj) return;
         obj.traverse(child => {
           if (child.isMesh) {
-            // Não descartar geometrias compartilhadas do cache do escultor
-            const isCached = Object.values(this.sculptor.geometryCache).includes(child.geometry);
-            if (child.geometry && !isCached) {
+            // Não descartar geometrias compartilhadas do cache do escultor ou do tabuleiro
+            const isCachedSculptor = Object.values(this.sculptor.geometryCache).includes(child.geometry);
+            const isCachedBoard = this.arcaneChessboard && this.arcaneChessboard.geometries.includes(child.geometry);
+            if (child.geometry && !isCachedSculptor && !isCachedBoard) {
               child.geometry.dispose();
             }
           }
@@ -1612,22 +1493,25 @@ class WizardChessApp {
           if (btn) btn.classList.toggle('active', id === preset);
         });
 
-        let targetPos = new THREE.Vector3(0, 7.0, 8.2);
+        let targetPos = new THREE.Vector3(0, 6.8, 8.0);
+        let endTarget = new THREE.Vector3(0, 0.25, 0);
+
         if (preset === 'white') {
-          targetPos.set(0, 7.0, 8.2);
+          targetPos.set(0, 6.8, 8.0);
         } else if (preset === 'black') {
-          targetPos.set(0, 7.0, -8.2);
+          targetPos.set(0, 6.8, -8.0);
         } else if (preset === 'top') {
-          targetPos.set(0, 12.2, 0.01);
+          targetPos.set(0, 12.0, 0.01);
+          endTarget.set(0, 0, 0);
         } else if (preset === 'cinema') {
-          targetPos.set(6.5, 5.3, 6.8);
+          targetPos.set(6.2, 5.0, 6.4);
         }
 
         this.cameraTransition = {
           startPos: this.camera.position.clone(),
           endPos: targetPos,
           startTarget: this.controls.target.clone(),
-          endTarget: new THREE.Vector3(0, 0.25, 0),
+          endTarget,
           elapsed: 0,
           duration: 0.72
         };
