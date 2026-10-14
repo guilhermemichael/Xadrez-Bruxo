@@ -3645,13 +3645,16 @@
         try { data = JSON.parse(localStorage.getItem(this.savedGameKey) || 'null'); } catch (_) { data = null; }
         if (!data || (!data.pgn && !data.fen)) { alert('Nenhuma partida salva foi encontrada neste navegador.'); return; }
         if (this.chess.history().length && !confirm('Substituir a posição atual pela partida salva?')) return;
+        // A recuperação também é transacional: dados corrompidos não podem
+        // apagar a posição que o jogador ainda tem aberta.
+        const recoveredGame = new Chess();
+        let loaded = false;
+        if (data.pgn) { try { loaded = recoveredGame.load_pgn(data.pgn); } catch (_) {} }
+        if (!loaded && data.fen) { try { loaded = recoveredGame.load(data.fen); } catch (_) {} }
+        if (!loaded) { alert('O arquivo de partida salva está inválido ou incompatível.'); return; }
         this.sessionToken++;
         this.aiThinking = false; this.isAnimating = false; this.pendingPromotion = null;
-        this.chess.reset();
-        let loaded = false;
-        if (data.pgn) { try { loaded = this.chess.load_pgn(data.pgn); } catch (_) {} }
-        if (!loaded && data.fen) loaded = this.chess.load(data.fen);
-        if (!loaded) { this.chess.reset(); alert('O arquivo de partida salva está inválido ou incompatível.'); return; }
+        this.chess = recoveredGame;
         this.gameMode = data.gameMode === 'local' ? 'local' : 'ai';
         this.playerColor = data.playerColor === 'b' ? 'b' : 'w';
         this.aiDifficulty = Math.max(1, Math.min(3, Number(data.aiDifficulty) || 2));
@@ -3674,11 +3677,14 @@
       importPGN() {
         const pgn = prompt('Cole abaixo o conteúdo PGN da partida:');
         if (pgn === null || !pgn.trim()) return;
-        this.sessionToken++; this.aiThinking = false; this.isAnimating = false;
-        this.chess.reset();
+        // Carrega primeiro em uma instância isolada: uma entrada inválida nunca
+        // deve destruir a partida válida que já está aberta.
+        const importedGame = new Chess();
         let loaded = false;
-        try { loaded = this.chess.load_pgn(pgn.trim()); } catch (err) { console.warn(err); }
-        if (!loaded) { this.chess.reset(); alert('Não foi possível importar esse PGN. Verifique a notação e tente novamente.'); return; }
+        try { loaded = importedGame.load_pgn(pgn.trim()); } catch (err) { console.warn(err); }
+        if (!loaded) { alert('Não foi possível importar esse PGN. Verifique a notação e tente novamente.'); return; }
+        this.sessionToken++; this.aiThinking = false; this.isAnimating = false;
+        this.chess = importedGame;
         this.gameMode = 'local'; this.gameStarted = true; this.gameConcluded = false; this.redoStack = []; this.lastMoveSquares = null;
         this.syncPersistentPiecesFromScratch(); this.updateHUD(); this.persistCurrentGame();
         document.getElementById('start-screen').classList.add('hidden');
@@ -3689,10 +3695,13 @@
       importFEN() {
         const fen = prompt('Cole a posição FEN completa:');
         if (fen === null || !fen.trim()) return;
+        // Valida em uma instância temporária para preservar a partida atual em
+        // caso de erro de digitação ou FEN incompatível.
+        const importedPosition = new Chess();
+        let ok = false; try { ok = importedPosition.load(fen.trim()); } catch (_) {}
+        if (!ok) { alert('FEN inválida. A posição deve conter os campos obrigatórios do formato FEN.'); return; }
         this.sessionToken++; this.aiThinking=false; this.isAnimating=false;
-        this.chess.reset();
-        let ok = false; try { ok = this.chess.load(fen.trim()); } catch (_) {}
-        if (!ok) { this.chess.reset(); alert('FEN inválida. A posição deve conter os campos obrigatórios do formato FEN.'); return; }
+        this.chess = importedPosition;
         this.gameMode='local'; this.gameStarted=true; this.gameConcluded=false; this.redoStack=[]; this.lastMoveSquares=null;
         this.clockRemaining=this.initialClockValues(); this.clockSide=this.chess.turn(); this.clockExpired=false;
         this.syncPersistentPiecesFromScratch(); this.updateHUD(); this.updateClockHUD(); this.persistCurrentGame();
@@ -3703,7 +3712,7 @@
       jumpToPly(ply) {
         const history = this.chess.history({verbose:true});
         const target = Math.max(0, Math.min(history.length, Number(ply)||0));
-        if (!history.length || target === history.length) return;
+        if (!history.length) return;
         const replay = new Chess();
         for (let i=0; i<target; i++) {
           const m=history[i];
