@@ -605,6 +605,11 @@
           <span class="font-cinzel text-xs font-bold text-amber-100">Cavalo</span>
         </button>
       </div>
+      <div class="pt-2 border-t border-amber-500/20">
+        <button onclick="app.cancelPromotion()" class="btn-arcane w-full py-2 rounded-xl text-stone-400 hover:text-amber-200 text-xs font-cinzel">
+          Cancelar escolha
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1939,6 +1944,7 @@
           this.camera.aspect = window.innerWidth / window.innerHeight;
           this.camera.updateProjectionMatrix();
           this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           this.syncRightPanelVisibility();
         });
       }
@@ -2554,6 +2560,11 @@
           ((piece.color === 'w' && to[1] === '8') || (piece.color === 'b' && to[1] === '1'));
 
         if (isPromotion && !explicitPromotion) {
+          const isLegalPromotion = this.chess.moves({ verbose: true }).some(m => m.from === from && m.to === to);
+          if (!isLegalPromotion) {
+            this.triggerIllegalMoveFeedback(to);
+            return;
+          }
           this.pendingPromotion = { from, to };
           this.toggleModal('promotion-modal', true);
           return;
@@ -2570,6 +2581,15 @@
           return;
         }
 
+        // O relógio troca no instante em que o motor aceita o lance. Assim a
+        // animação cinematográfica não concede tempo gratuito a cada jogada.
+        if (this.clockControl !== 'off' && !this.clockExpired) {
+          this.clockRemaining[moveResult.color] += this.clockIncrement;
+          this.clockSide = this.chess.turn();
+          this.updateClockHUD();
+        }
+        if (this.chess.game_over()) this.gameConcluded = true;
+
         this.redoStack = [];
         this.lastMoveSquares = { from: moveResult.from, to: moveResult.to };
         this.clearSelection();
@@ -2583,6 +2603,12 @@
         const { from, to } = this.pendingPromotion;
         this.pendingPromotion = null;
         this.initiateMove(from, to, pieceType);
+      }
+
+      cancelPromotion() {
+        this.toggleModal('promotion-modal', false);
+        this.pendingPromotion = null;
+        this.clearSelection();
       }
 
       /**
@@ -2767,9 +2793,6 @@
 
       onMoveAnimationComplete(attacker, moveResult, token) {
         if (token !== this.sessionToken) return;
-        if (this.clockControl !== 'off' && !this.clockExpired) this.clockRemaining[moveResult.color] += this.clockIncrement;
-        this.clockSide = this.chess.turn();
-        this.updateClockHUD();
 
         // Se houve promoção de peão, esculpir a nova peça mantendo o ID persistente
         if (moveResult.promotion) {
@@ -3226,34 +3249,57 @@
           checkBadge.classList.add('hidden');
         }
 
-        // Histórico Algébrico
-        const history = this.chess.history({ verbose: true });
+        // Histórico Algébrico Completo (lances jogados + lances futuros disponíveis para refazer)
+        const playedHistory = this.chess.history({ verbose: true });
+        const futureHistory = (this.redoStack || []).slice().reverse();
+        const fullHistory = [...playedHistory, ...futureHistory];
+        const activePly = playedHistory.length;
+
         const historyEl = document.getElementById('move-history');
         const moveCounter = document.getElementById('move-counter');
-        moveCounter.textContent = `Lance ${Math.floor(history.length / 2) + 1}`;
+        moveCounter.textContent = `Lance ${Math.floor(fullHistory.length / 2) + 1}`;
 
-        if (history.length === 0) {
+        if (fullHistory.length === 0) {
           historyEl.innerHTML = `
             <div class="text-stone-500 italic font-sans text-[11px] py-4 text-center">
               As esculturas aguardam o primeiro comando...
             </div>`;
         } else {
-          let html = '';
-          for (let i = 0; i < history.length; i += 2) {
+          let html = `
+            <div class="flex items-center justify-between px-2 py-1 mb-1.5 rounded text-[11px] bg-stone-900/80 border border-amber-500/20">
+              <span class="text-stone-400 text-[10px] uppercase tracking-wider">Navegação:</span>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="app.jumpToPly(0)" class="text-xs ${activePly === 0 ? 'text-amber-300 font-bold underline' : 'text-stone-400 hover:text-white'} underline-offset-2" title="Ver posição inicial">⏮ Início</button>
+                <button type="button" onclick="app.jumpToPly(${fullHistory.length})" class="text-xs ${activePly === fullHistory.length ? 'text-amber-300 font-bold underline' : 'text-stone-400 hover:text-white'} underline-offset-2" title="Ir para o lance mais recente">Fim ⏭</button>
+              </div>
+            </div>`;
+
+          for (let i = 0; i < fullHistory.length; i += 2) {
             const moveNum = Math.floor(i / 2) + 1;
-            const wMove = history[i];
-            const bMove = history[i + 1];
+            const wMove = fullHistory[i];
+            const bMove = fullHistory[i + 1];
+            const wPly = i + 1;
+            const bPly = i + 2;
+
+            const wClass = activePly === wPly
+              ? 'text-amber-200 font-bold bg-amber-500/25 px-1.5 py-0.5 rounded border border-amber-500/40'
+              : (wPly <= activePly ? 'text-amber-100 hover:text-white' : 'text-stone-500 hover:text-stone-300');
+
+            const bClass = activePly === bPly
+              ? 'text-amber-200 font-bold bg-amber-500/25 px-1.5 py-0.5 rounded border border-amber-500/40'
+              : (bPly <= activePly ? 'text-stone-300 hover:text-white' : 'text-stone-500 hover:text-stone-300');
+
             html += `
-              <div class="flex items-center justify-between px-2 py-1 rounded ${
-                i + 2 >= history.length ? 'bg-amber-500/15 border border-amber-500/30' : 'hover:bg-white/5'
-              }">
+              <div class="flex items-center justify-between px-2 py-0.5 rounded hover:bg-white/5 text-[11px]">
                 <span class="text-stone-500 w-7">${moveNum}.</span>
-                <button type="button" onclick="app.jumpToPly(${i + 1})" class="text-amber-100 flex-1 text-left hover:text-white underline-offset-2 hover:underline" title="Ir para este lance">${wMove.san}</button>
-                <button type="button" onclick="app.jumpToPly(${bMove ? i + 2 : i + 1})" class="text-stone-300 flex-1 text-right hover:text-white underline-offset-2 hover:underline" title="Ir para este lance">${bMove ? bMove.san : ''}</button>
+                <button type="button" onclick="app.jumpToPly(${wPly})" class="${wClass} flex-1 text-left underline-offset-2 hover:underline truncate" title="Ir para lance ${wPly}">${wMove.san}</button>
+                <button type="button" onclick="app.jumpToPly(${bMove ? bPly : wPly})" class="${bClass} flex-1 text-right underline-offset-2 hover:underline truncate" title="${bMove ? 'Ir para lance ' + bPly : ''}">${bMove ? bMove.san : ''}</button>
               </div>`;
           }
           historyEl.innerHTML = html;
-          historyEl.scrollTop = historyEl.scrollHeight;
+          if (activePly === fullHistory.length) {
+            historyEl.scrollTop = historyEl.scrollHeight;
+          }
         }
 
         // Cemitério de Peças Capturadas + Cálculo Real de Vantagem Material
@@ -3262,7 +3308,7 @@
         const capturedByWhite = [];
         const capturedByBlack = [];
 
-        history.forEach(m => {
+        playedHistory.forEach(m => {
           if (m.captured) {
             if (m.color === 'w') capturedByWhite.push(icons[m.captured] || '♟');
             else capturedByBlack.push(icons[m.captured] || '♟');
@@ -3294,6 +3340,12 @@
       }
 
       showGameOverModal() {
+        this.gameConcluded = true;
+        this.sessionToken++;
+        this.aiThinking = false;
+        this.isAnimating = false;
+        const badge = document.getElementById('guardian-thinking');
+        if (badge) { badge.classList.add('hidden'); badge.classList.remove('inline-flex'); }
         const titleEl = document.getElementById('gameover-title');
         const subEl = document.getElementById('gameover-subtitle');
 
@@ -3416,6 +3468,7 @@
 
       startNewGame(mode = 'ai', color = 'w', difficulty = 2) {
         this.gameMode = mode === 'local' ? 'local' : 'ai';
+        this.sessionGameMode = this.gameMode;
         this.playerColor = color === 'b' ? 'b' : 'w';
         this.startingColor = this.playerColor;
         this.aiDifficulty = Math.max(1, Math.min(3, parseInt(difficulty, 10) || 2));
@@ -3452,6 +3505,7 @@
           return;
         }
         this.gameMode = mode;
+        this.sessionGameMode = mode;
         document.getElementById('select-mode').value = mode;
         document.getElementById('modal-select-mode').value = mode;
         const startMode = document.getElementById('start-mode');
@@ -3710,22 +3764,44 @@
       }
 
       jumpToPly(ply) {
-        const history = this.chess.history({verbose:true});
-        const target = Math.max(0, Math.min(history.length, Number(ply)||0));
-        if (!history.length) return;
+        const played = this.chess.history({ verbose: true });
+        const future = (this.redoStack || []).slice().reverse();
+        const allMoves = [...played, ...future];
+        if (!allMoves.length) return;
+
+        const target = Math.max(0, Math.min(allMoves.length, Number(ply) || 0));
         const replay = new Chess();
-        for (let i=0; i<target; i++) {
-          const m=history[i];
-          if (!replay.move({from:m.from,to:m.to,promotion:m.promotion||'q'})) break;
+        for (let i = 0; i < target; i++) {
+          const m = allMoves[i];
+          if (!replay.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' })) break;
         }
-        this.sessionToken++; this.aiThinking=false; this.isAnimating=false;
-        this.chess = replay; this.redoStack = history.slice(target).reverse();
-        this.gameMode = 'local'; this.gameConcluded = false;
-        document.getElementById('select-mode').value = 'local';
-        document.getElementById('modal-select-mode').value = 'local';
-        this.lastMoveSquares = target ? {from:history[target-1].from,to:history[target-1].to} : null;
-        this.clockSide=this.chess.turn(); this.syncPersistentPiecesFromScratch(); this.updateHUD(); this.persistCurrentGame();
-        document.getElementById('last-move-banner').textContent=`Histórico: visualizando após ${target} lance(s).`;
+
+        this.sessionToken++;
+        this.aiThinking = false;
+        this.isAnimating = false;
+        this.chess = replay;
+        this.redoStack = allMoves.slice(target).reverse();
+
+        if (!this.sessionGameMode) this.sessionGameMode = this.gameMode;
+        if (target === allMoves.length) {
+          this.gameMode = this.sessionGameMode;
+        } else {
+          this.gameMode = 'local';
+        }
+        ['select-mode', 'modal-select-mode'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = this.gameMode;
+        });
+
+        this.gameConcluded = false;
+        this.lastMoveSquares = target > 0 ? { from: allMoves[target - 1].from, to: allMoves[target - 1].to } : null;
+        this.clockSide = this.chess.turn();
+        this.syncPersistentPiecesFromScratch();
+        this.updateHUD();
+        this.persistCurrentGame();
+        document.getElementById('last-move-banner').textContent = target === 0
+          ? 'Histórico: visualizando posição inicial.'
+          : `Histórico: visualizando após ${target} lance(s).`;
       }
 
       async copyFEN() {
@@ -3851,13 +3927,21 @@
     window.addEventListener('DOMContentLoaded', () => {
       if (window.lucide) window.lucide.createIcons();
       app = new WizardChessApp();
+      // Os handlers inline do HTML resolvem nomes no escopo global. Manter a
+      // mesma instância em window.app evita que cliques e submits chamem uma
+      // referência inexistente enquanto o restante do código usa `app`.
+      window.app = app;
       window.addEventListener('keydown', (event) => {
         if (!app || event.ctrlKey || event.metaKey || event.altKey) return;
         const tag = event.target && event.target.tagName;
         if (['INPUT','TEXTAREA','SELECT'].includes(tag) || !document.getElementById('start-screen').classList.contains('hidden')) return;
         if (event.key.toLowerCase() === 'z') { event.preventDefault(); app.undoMove(); }
         else if (event.key.toLowerCase() === 'y') { event.preventDefault(); app.redoMove(); }
-        else if (event.key === 'Escape') { app.toggleModal('settings-modal', false); app.toggleModal('help-modal', false); }
+        else if (event.key === 'Escape') {
+          app.cancelPromotion();
+          app.toggleModal('settings-modal', false);
+          app.toggleModal('help-modal', false);
+        }
       });
     });
   </script>
