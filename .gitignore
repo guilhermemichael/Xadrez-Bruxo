@@ -1,5 +1,7 @@
 node_modules/
 dist/
 .vite/
+public/assets/stockfish/*.js
+public/assets/stockfish/*.wasm
 *.log
 .DS_Store

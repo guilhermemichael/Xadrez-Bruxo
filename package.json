@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "prepare:stockfish": "node scripts/copy-stockfish-assets.js",
+    "build": "npm run prepare:stockfish && vite build",
     "preview": "vite preview",
     "test": "node --test",
     "lint": "eslint . --max-warnings=0"
@@ -13,7 +14,8 @@
   "dependencies": {
     "chess.js": "0.10.3",
     "lucide": "0.468.0",
-    "three": "0.128.0"
+    "three": "0.128.0",
+    "stockfish": "19.0.1"
   },
   "devDependencies": {
     "@eslint/js": "9.17.0",
