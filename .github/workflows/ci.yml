@@ -2,7 +2,7 @@ name: Validate Xadrez Bruxo
 
 on:
   push:
-    branches: [main, refactor/modular-architecture]
+    branches: [main, refactor/modular-architecture, feat/stockfish-worker]
   pull_request:
 
 jobs:

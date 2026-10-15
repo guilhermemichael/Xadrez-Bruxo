@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Chess } from 'chess.js';
 import { ArcaneAudioEngine } from '../services/ArcaneAudioEngine.js';
 import { GuardianAI } from '../ai/GuardianAI.js';
+import { StockfishEngine } from '../ai/StockfishEngine.js';
 import { PortugueseVoiceCommandParser } from '../chess/PortugueseVoiceCommandParser.js';
 import { ArcanePieceSculptor } from '../scene/ArcanePieceSculptor.js';
 import { ArcaneChessboard } from '../scene/ArcaneChessboard.js';
@@ -12,6 +13,7 @@ class WizardChessApp {
         this.chess = new Chess();
         this.audio = new ArcaneAudioEngine();
         this.ai = new GuardianAI();
+        this.stockfish = new StockfishEngine({ baseUrl: import.meta.env.BASE_URL });
         this.sculptor = new ArcanePieceSculptor();
 
         // Configurações da Partida
@@ -937,27 +939,43 @@ class WizardChessApp {
         }
       }
 
-      triggerGuardianMove(token) {
+      invalidateAiSearch() {
+        this.sessionToken++;
+        this.stockfish?.cancel();
+        this.aiThinking = false;
+        const badge = document.getElementById('guardian-thinking');
+        if (badge) { badge.classList.add('hidden'); badge.classList.remove('inline-flex'); }
+      }
+
+      async triggerGuardianMove(token) {
         if (this.gameConcluded || !this.gameStarted || this.chess.game_over()) return;
         this.aiThinking = true;
         const badge = document.getElementById('guardian-thinking');
         badge.classList.remove('hidden');
         badge.classList.add('inline-flex');
-
         const currentFen = this.chess.fen();
         const level = this.aiDifficulty;
 
-        setTimeout(() => {
-          if (token !== this.sessionToken || this.gameConcluded || !this.gameStarted) return;
-          const chosen = this.ai.chooseBestMove(currentFen, level);
-          this.aiThinking = false;
-          badge.classList.add('hidden');
-          badge.classList.remove('inline-flex');
-
-          if (chosen) {
-            this.initiateMove(chosen.from, chosen.to, chosen.promotion || 'q');
+        try {
+          let chosen;
+          try {
+            chosen = await this.stockfish.searchBestMove(currentFen, level);
+          } catch (engineError) {
+            console.warn('Stockfish indisponível; usando o Guardião local.', engineError);
+            // O fallback fica limitado ao nível aleatório para não bloquear a thread
+            // principal durante uma falha de carregamento ou pesquisa.
+            chosen = this.ai.chooseBestMove(currentFen, 1);
           }
-        }, 420);
+          if (token !== this.sessionToken || this.gameConcluded || !this.gameStarted || this.chess.fen() !== currentFen || this.chess.turn() === this.playerColor) return;
+          const legal = this.chess.moves({ verbose: true }).find((move) => move.from === chosen?.from && move.to === chosen?.to && (move.promotion || null) === (chosen?.promotion || null));
+          if (legal) this.initiateMove(legal.from, legal.to, legal.promotion || 'q');
+        } finally {
+          if (token === this.sessionToken) {
+            this.aiThinking = false;
+            badge.classList.add('hidden');
+            badge.classList.remove('inline-flex');
+          }
+        }
       }
 
       announceAndRecordMove(move) {
@@ -1453,7 +1471,7 @@ class WizardChessApp {
 
       showGameOverModal() {
         this.gameConcluded = true;
-        this.sessionToken++;
+        this.invalidateAiSearch();
         this.aiThinking = false;
         this.isAnimating = false;
         const badge = document.getElementById('guardian-thinking');
@@ -1737,7 +1755,7 @@ class WizardChessApp {
           this.clockRemaining[this.clockSide] = 0; this.clockExpired = true; this.gameConcluded = true;
           const loser = this.clockSide, winner = loser === 'w' ? 'Obsidiana' : 'Marfim';
           this.updateClockHUD();
-          this.sessionToken++; this.aiThinking = false; this.isAnimating = false;
+          this.invalidateAiSearch(); this.aiThinking = false; this.isAnimating = false;
           document.getElementById('gameover-title').textContent = 'Tempo esgotado';
           document.getElementById('gameover-subtitle').textContent = `${winner} vence pelo relógio. Em caso de material insuficiente, confirme as regras oficiais antes de registrar o resultado.`;
           this.toggleModal('gameover-modal', true); return;
@@ -1821,7 +1839,7 @@ class WizardChessApp {
         if (data.pgn) { try { loaded = recoveredGame.load_pgn(data.pgn); } catch (_) {} }
         if (!loaded && data.fen) { try { loaded = recoveredGame.load(data.fen); } catch (_) {} }
         if (!loaded) { alert('O arquivo de partida salva está inválido ou incompatível.'); return; }
-        this.sessionToken++;
+        this.invalidateAiSearch();
         this.aiThinking = false; this.isAnimating = false; this.pendingPromotion = null;
         this.chess = recoveredGame;
         this.gameMode = data.gameMode === 'local' ? 'local' : 'ai';
@@ -1852,7 +1870,7 @@ class WizardChessApp {
         let loaded = false;
         try { loaded = importedGame.load_pgn(pgn.trim()); } catch (err) { console.warn(err); }
         if (!loaded) { alert('Não foi possível importar esse PGN. Verifique a notação e tente novamente.'); return; }
-        this.sessionToken++; this.aiThinking = false; this.isAnimating = false;
+        this.invalidateAiSearch(); this.aiThinking = false; this.isAnimating = false;
         this.chess = importedGame;
         this.gameMode = 'local'; this.gameStarted = true; this.gameConcluded = false; this.redoStack = []; this.lastMoveSquares = null;
         this.syncPersistentPiecesFromScratch(); this.updateHUD(); this.persistCurrentGame();
@@ -1869,7 +1887,7 @@ class WizardChessApp {
         const importedPosition = new Chess();
         let ok = false; try { ok = importedPosition.load(fen.trim()); } catch (_) {}
         if (!ok) { alert('FEN inválida. A posição deve conter os campos obrigatórios do formato FEN.'); return; }
-        this.sessionToken++; this.aiThinking=false; this.isAnimating=false;
+        this.invalidateAiSearch(); this.aiThinking=false; this.isAnimating=false;
         this.chess = importedPosition;
         this.gameMode='local'; this.gameStarted=true; this.gameConcluded=false; this.redoStack=[]; this.lastMoveSquares=null;
         this.clockRemaining=this.initialClockValues(); this.clockSide=this.chess.turn(); this.clockExpired=false;
@@ -1891,7 +1909,7 @@ class WizardChessApp {
           if (!replay.move({ from: m.from, to: m.to, promotion: m.promotion || 'q' })) break;
         }
 
-        this.sessionToken++;
+        this.invalidateAiSearch();
         this.aiThinking = false;
         this.isAnimating = false;
         this.chess = replay;
@@ -1933,7 +1951,7 @@ class WizardChessApp {
       }
 
       rebuildFromRules() {
-        this.sessionToken++; this.aiThinking = false; this.isAnimating = false;
+        this.invalidateAiSearch(); this.aiThinking = false; this.isAnimating = false;
         this.pendingPromotion = null; this.activeAnimations = [];
         this.clearSelection(); this.syncPersistentPiecesFromScratch(); this.updateHUD();
         this.persistCurrentGame();
@@ -1941,7 +1959,7 @@ class WizardChessApp {
 
       undoMove() {
         if (!this.chess.history().length) { alert('Não há lances para desfazer.'); return; }
-        this.sessionToken++; this.aiThinking = false; this.isAnimating = false;
+        this.invalidateAiSearch(); this.aiThinking = false; this.isAnimating = false;
         const currentHistory = this.chess.history({verbose:true});
         const lastPly = currentHistory[currentHistory.length - 1];
         const plies = this.gameMode === 'ai' && currentHistory.length >= 2 && lastPly && lastPly.color !== this.playerColor ? 2 : 1;
@@ -1952,7 +1970,7 @@ class WizardChessApp {
 
       redoMove() {
         if (!this.redoStack.length) { alert('Não há lances desfeitos para refazer.'); return; }
-        this.sessionToken++; this.aiThinking = false; this.isAnimating = false;
+        this.invalidateAiSearch(); this.aiThinking = false; this.isAnimating = false;
         const first = this.redoStack.pop();
         const result = this.chess.move({ from:first.from, to:first.to, promotion:first.promotion || 'q' });
         if (!result) { this.redoStack = []; alert('Não foi possível refazer este lance na posição atual.'); this.rebuildFromRules(); return; }
@@ -1971,7 +1989,7 @@ class WizardChessApp {
 
       returnToMenu() {
         if (this.chess.history().length && !confirm('Voltar ao menu? A partida atual será mantida no salvamento local automático.')) return;
-        this.persistCurrentGame(); this.sessionToken++; this.aiThinking=false; this.isAnimating=false;
+        this.persistCurrentGame(); this.invalidateAiSearch(); this.aiThinking=false; this.isAnimating=false;
         this.gameStarted = false; this.gameConcluded = false; this.clearSelection();
         document.getElementById('start-screen').classList.remove('hidden');
       }
@@ -1979,7 +1997,7 @@ class WizardChessApp {
       resignGame() {
         if (!this.gameStarted || this.chess.game_over()) return;
         if (!confirm('Deseja realmente desistir desta partida?')) return;
-        this.sessionToken++; this.aiThinking=false; this.isAnimating=false; this.gameConcluded=true;
+        this.invalidateAiSearch(); this.aiThinking=false; this.isAnimating=false; this.gameConcluded=true;
         const winner = this.chess.turn() === 'w' ? 'Obsidiana' : 'Marfim';
         document.getElementById('gameover-title').textContent = 'Desistência';
         document.getElementById('gameover-subtitle').textContent = `${winner} vence por desistência. O estado de regras não foi adulterado; inicie uma nova batalha para jogar novamente.`;
@@ -2003,7 +2021,7 @@ class WizardChessApp {
       resetGame(force = false) {
         if (!force && this.gameStarted && this.chess.history().length > 0 &&
             !window.confirm('Reiniciar a batalha? O progresso atual será substituído.')) return;
-        this.sessionToken++;
+        this.invalidateAiSearch();
         this.redoStack = [];
         this.isAnimating = false;
         this.aiThinking = false;

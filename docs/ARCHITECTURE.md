@@ -10,7 +10,7 @@ O projeto usa Vite, JavaScript com módulos ES nativos e dependências versionad
 - `src/main.js` inicializa os serviços, registra eventos e cria o controlador.
 - `src/app/WizardChessApp.js` contém a orquestração da partida e integrações legadas ainda coesas.
 - `src/chess/` concentra o parser de comandos e a integração futura de estado/histórico.
-- `src/ai/` concentra o Guardião e será o ponto de entrada para Stockfish.
+- `src/ai/` concentra o Guardião legado e o `StockfishEngine`, que executa a engine lite single-threaded em Web Worker.
 - `src/scene/` concentra a cena, tabuleiro e esculturas 3D.
 - `src/ui/` contém o dispatcher de ações DOM e a camada de HUD.
 - `src/services/` contém persistência e relógio.
@@ -38,3 +38,4 @@ npm run preview
 - A cena 3D e o controlador ainda compartilham algumas estruturas internas durante a migração.
 - Recursos binários ainda não foram adicionados a `public/assets`; a cena atual gera as esculturas por código.
 - Testes visuais de WebGL continuam sendo uma etapa de integração do navegador.
+- O carregamento detalhado do Stockfish, a licença GPL-3.0 e os níveis UCI estão documentados em `docs/STOCKFISH.md`.
