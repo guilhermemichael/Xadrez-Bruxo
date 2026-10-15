@@ -7,34 +7,36 @@ class ArcanePieceSculptor {
         // Materiais PBR Refinados: Marfim Envelhecido, Obsidiana Esculpida e Bronze Antigo
         this.materials = {
           w: new THREE.MeshStandardMaterial({
-            color: 0xe6dbc8,
+            color: 0xede2cf,
             map: this.textures.ivoryColor,
             bumpMap: this.textures.stoneBump,
-            bumpScale: 0.012,
+            bumpScale: 0.010,
             roughnessMap: this.textures.stoneBump,
-            roughness: 0.42,
+            roughness: 0.36,
             metalness: 0.08
           }),
           b: new THREE.MeshStandardMaterial({
-            color: 0x1e222b,
+            color: 0x181c25,
             map: this.textures.obsidianColor,
             bumpMap: this.textures.stoneBump,
-            bumpScale: 0.015,
+            bumpScale: 0.012,
             roughnessMap: this.textures.stoneBump,
-            roughness: 0.34,
-            metalness: 0.28
+            roughness: 0.30,
+            metalness: 0.22
           }),
           bronze: new THREE.MeshStandardMaterial({
-            color: 0xc89d5c,
+            color: 0xd4a76a,
             bumpMap: this.textures.stoneBump,
-            bumpScale: 0.008,
-            roughness: 0.32,
-            metalness: 0.84
+            bumpScale: 0.006,
+            roughness: 0.28,
+            metalness: 0.88
           }),
           darkBronze: new THREE.MeshStandardMaterial({
-            color: 0x7c5c2b,
+            color: 0x5a4832,
+            bumpMap: this.textures.stoneBump,
+            bumpScale: 0.008,
             roughness: 0.44,
-            metalness: 0.76
+            metalness: 0.80
           })
         };
 
@@ -45,12 +47,12 @@ class ArcanePieceSculptor {
 
       // Gera texturas procedurais em Canvas para veios de mármore, ardósia e micro-relevo de pedra
       generateProceduralStoneTextures() {
-        const createCanvasTex = (drawFn) => {
+        const createCanvasTex = (w, h, drawFn) => {
           const canvas = document.createElement('canvas');
-          canvas.width = 256;
-          canvas.height = 256;
+          canvas.width = w;
+          canvas.height = h;
           const ctx = canvas.getContext('2d');
-          drawFn(ctx, 256, 256);
+          drawFn(ctx, w, h);
           const tex = new THREE.CanvasTexture(canvas);
           tex.wrapS = THREE.RepeatWrapping;
           tex.wrapT = THREE.RepeatWrapping;
@@ -58,7 +60,7 @@ class ArcanePieceSculptor {
         };
 
         // 1. Mapa de Relevo/Rugosidade de Pedra Esculpida
-        const stoneBump = createCanvasTex((ctx, w, h) => {
+        const stoneBump = createCanvasTex(256, 256, (ctx, w, h) => {
           ctx.fillStyle = '#808080';
           ctx.fillRect(0, 0, w, h);
           for (let i = 0; i < 4200; i++) {
@@ -85,8 +87,8 @@ class ArcanePieceSculptor {
           }
         });
 
-        // 2. Nuances de Marfim Envelhecido / Mármore Quente
-        const ivoryColor = createCanvasTex((ctx, w, h) => {
+        // 2. Nuances de Marfim Envelhecido / Mármore Quente para Peças
+        const ivoryColor = createCanvasTex(256, 256, (ctx, w, h) => {
           const grad = ctx.createLinearGradient(0, 0, w, h);
           grad.addColorStop(0, '#ebe1cf');
           grad.addColorStop(0.5, '#dfd3be');
@@ -110,8 +112,8 @@ class ArcanePieceSculptor {
           }
         });
 
-        // 3. Nuances de Obsidiana / Grafite Mineral
-        const obsidianColor = createCanvasTex((ctx, w, h) => {
+        // 3. Nuances de Obsidiana / Grafite Mineral para Peças
+        const obsidianColor = createCanvasTex(256, 256, (ctx, w, h) => {
           const grad = ctx.createLinearGradient(0, 0, w, h);
           grad.addColorStop(0, '#222631');
           grad.addColorStop(0.5, '#181b24');
@@ -135,7 +137,134 @@ class ArcanePieceSculptor {
           }
         });
 
-        return { stoneBump, ivoryColor, obsidianColor };
+        // 4. Mármore Travertino Marfim de Alta Definição para as Casas Claras
+        const ivoryTileColor = createCanvasTex(512, 512, (ctx, w, h) => {
+          const grad = ctx.createRadialGradient(w / 2, h / 2, 20, w / 2, h / 2, w * 0.75);
+          grad.addColorStop(0, '#fbf4ea');
+          grad.addColorStop(0.5, '#eee1ce');
+          grad.addColorStop(1, '#dfceb6');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+
+          // Manchas suaves de calcita
+          for (let i = 0; i < 35; i++) {
+            const rx = Math.random() * w;
+            const ry = Math.random() * h;
+            const rad = 25 + Math.random() * 50;
+            const spotGrad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rad);
+            spotGrad.addColorStop(0, 'rgba(255, 250, 240, 0.22)');
+            spotGrad.addColorStop(1, 'rgba(255, 250, 240, 0)');
+            ctx.fillStyle = spotGrad;
+            ctx.beginPath();
+            ctx.arc(rx, ry, rad, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Veios orgânicos dourados e âmbar
+          ctx.strokeStyle = 'rgba(172, 138, 92, 0.22)';
+          ctx.lineWidth = 2.2;
+          for (let v = 0; v < 16; v++) {
+            ctx.beginPath();
+            let vx = Math.random() * w;
+            let vy = 0;
+            ctx.moveTo(vx, vy);
+            while (vy < h) {
+              vy += 22;
+              vx += (Math.random() - 0.5) * 32;
+              ctx.lineTo(vx, vy);
+            }
+            ctx.stroke();
+          }
+
+          // Micro-fissuras mais finas
+          ctx.strokeStyle = 'rgba(128, 95, 58, 0.14)';
+          ctx.lineWidth = 1.0;
+          for (let v = 0; v < 12; v++) {
+            ctx.beginPath();
+            let vx = Math.random() * w;
+            let vy = 0;
+            ctx.moveTo(vx, vy);
+            while (vy < h) {
+              vy += 18;
+              vx += (Math.random() - 0.5) * 20;
+              ctx.lineTo(vx, vy);
+            }
+            ctx.stroke();
+          }
+        });
+
+        // 5. Obsidiana Vulcânica com Fraturas Minerais para as Casas Escuras
+        const obsidianTileColor = createCanvasTex(512, 512, (ctx, w, h) => {
+          const grad = ctx.createRadialGradient(w / 2, h / 2, 20, w / 2, h / 2, w * 0.75);
+          grad.addColorStop(0, '#1c212d');
+          grad.addColorStop(0.5, '#12151c');
+          grad.addColorStop(1, '#0b0d12');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+
+          // Cristais e reflexos minerais azulados frios
+          for (let i = 0; i < 2400; i++) {
+            const x = Math.random() * w;
+            const y = Math.random() * h;
+            const b = 18 + Math.floor(Math.random() * 45);
+            ctx.fillStyle = `rgba(${b},${b + 4},${b + 12}, 0.65)`;
+            ctx.fillRect(x, y, 2, 2);
+          }
+
+          // Fraturas vítreas em azul-aço sutil
+          ctx.strokeStyle = 'rgba(145, 185, 240, 0.12)';
+          ctx.lineWidth = 1.6;
+          for (let v = 0; v < 14; v++) {
+            ctx.beginPath();
+            let vx = Math.random() * w;
+            let vy = 0;
+            ctx.moveTo(vx, vy);
+            while (vy < h) {
+              vy += 24;
+              vx += (Math.random() - 0.5) * 30;
+              ctx.lineTo(vx, vy);
+            }
+            ctx.stroke();
+          }
+
+          // Fissuras profundas em carvão mineral
+          ctx.strokeStyle = 'rgba(5, 7, 10, 0.6)';
+          ctx.lineWidth = 2.0;
+          for (let v = 0; v < 8; v++) {
+            ctx.beginPath();
+            let vx = Math.random() * w;
+            let vy = 0;
+            ctx.moveTo(vx, vy);
+            while (vy < h) {
+              vy += 32;
+              vx += (Math.random() - 0.5) * 24;
+              ctx.lineTo(vx, vy);
+            }
+            ctx.stroke();
+          }
+        });
+
+        // 6. Micro-relevo polido para ladrilhos
+        const stoneTileBump = createCanvasTex(512, 512, (ctx, w, h) => {
+          ctx.fillStyle = '#808080';
+          ctx.fillRect(0, 0, w, h);
+          for (let i = 0; i < 3500; i++) {
+            const x = Math.random() * w;
+            const y = Math.random() * h;
+            const v = 115 + Math.floor(Math.random() * 26);
+            ctx.fillStyle = `rgb(${v},${v},${v})`;
+            ctx.fillRect(x, y, 1.5, 1.5);
+          }
+        });
+
+        return {
+          stoneBump,
+          ivoryColor,
+          obsidianColor,
+          ivoryTileColor,
+          obsidianTileColor,
+          stoneTileBump
+        };
       }
 
       initSharedGeometries() {
@@ -157,6 +286,9 @@ class ArcanePieceSculptor {
           [0.29, 0.24],
           [0.0, 0.24]
         ], 24);
+
+        // Anel de assento/contato metálico na base (evita que a peça pareça flutuar)
+        this.geometryCache.groundRing = new THREE.CylinderGeometry(0.415, 0.415, 0.018, 28);
 
         // Anel ornamental de bronze da base
         this.geometryCache.baseRing = new THREE.TorusGeometry(0.355, 0.02, 10, 28);
@@ -271,7 +403,16 @@ class ArcanePieceSculptor {
         pedestal.receiveShadow = true;
         root.add(pedestal);
 
-        // Anel de Bronze na Base
+        // Anel de assento de contato com a casa (evita flutuação visual)
+        const groundRing = new THREE.Mesh(
+          this.geometryCache.groundRing,
+          color === 'w' ? bronzeMat : this.materials.darkBronze
+        );
+        groundRing.position.y = 0.009;
+        groundRing.receiveShadow = true;
+        root.add(groundRing);
+
+        // Anel de Bronze Ornamental na Base
         const baseRing = new THREE.Mesh(this.geometryCache.baseRing, bronzeMat);
         baseRing.rotation.x = Math.PI / 2;
         baseRing.position.y = 0.135;
